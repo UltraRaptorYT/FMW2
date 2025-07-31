@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -31,6 +31,7 @@ type TemplateField = {
   pattern?: string;
   errorMessage?: string;
   default?: string;
+  showIf?: { key: string; equals: string };
 };
 
 type TemplateDefinition = {
@@ -174,6 +175,12 @@ const templates: Record<string, TemplateDefinition> = {
     name: "RSI/RSO/MA Reporting Template",
     fields: [
       {
+        key: "newStatus",
+        label: "Status",
+        type: "select",
+        options: ["NEW", "UPDATED"],
+      },
+      {
         key: "rank",
         label: "Rank",
         type: "select",
@@ -194,28 +201,63 @@ const templates: Record<string, TemplateDefinition> = {
       },
       { key: "name", label: "Name", type: "input", placeholder: "Your Name" },
       {
+        key: "typeSick",
+        label: "Status",
+        type: "select",
+        options: ["RSI", "RSO", "MA", "FFI", "ORD FFI"],
+      },
+      {
         key: "location",
         label: "Location",
         type: "input",
         placeholder: "Location of Medical Center",
         default: "Sungei Gedong Medical Centre",
       },
+      { key: "dateIncident", label: "Date of Incident", type: "date" },
       {
-        key: "typeReport",
-        label: "Type",
+        key: "startTimeIncident",
+        label: "Start Time of Incident",
         type: "input",
-        placeholder: "Leave / Off if OL, indicate country",
-        pattern: "^(Off|Leave|OL - .+)$",
-        errorMessage: 'Must be "Off", "Leave", or "OL - [country]"',
+        placeholder: "e.g. 1320",
+        pattern: "^([01][0-9]|2[0-3])[0-5][0-9]$",
+        errorMessage: "Time must be in 24hr format (e.g. 1320)",
       },
-      { key: "date", label: "Date", type: "date" },
-      { key: "endDate", label: "End Date", type: "date" },
       {
-        key: "balance",
-        label: "Balance Left",
+        key: "reasonSick",
+        label: "Reason for Report",
         type: "input",
-        placeholder: "Balance Left",
-        pattern: "^\\d+(\\.\\d+)?$",
+        placeholder: "e.g. Support for weekend tasking, holiday duty, etc.",
+      },
+      {
+        key: "endTimeIncident",
+        label: "End Time of Incident",
+        type: "input",
+        placeholder: "e.g. 1320",
+        pattern: "^([01][0-9]|2[0-3])[0-5][0-9]$",
+        errorMessage: "Time must be in 24hr format (e.g. 1320)",
+        showIf: { key: "newStatus", equals: "UPDATED" },
+      },
+      {
+        key: "sickStatus",
+        label: "Status Sick",
+        type: "input",
+        placeholder: "e.g. LD, MC, Excuse Dust etc.",
+        showIf: { key: "newStatus", equals: "UPDATED" },
+      },
+      {
+        key: "dayStatus",
+        label: "Number of Days for Status",
+        type: "input",
+        pattern: "^\\d+$",
+        showIf: { key: "newStatus", equals: "UPDATED" },
+      },
+      {
+        key: "mcRefNo",
+        label: "MC Ref No",
+        type: "input",
+        pattern: "^\\d+$",
+        showIf: { key: "newStatus", equals: "UPDATED" },
+        required: false,
       },
       {
         key: "recommendedBy",
@@ -226,45 +268,70 @@ const templates: Record<string, TemplateDefinition> = {
       },
     ],
     generate: ({
+      newStatus,
       rank,
       name,
-      typeOff,
+      typeSick,
+      reasonSick,
       location,
-      date,
-      endDate,
-      balance,
+      dateIncident,
+      startTimeIncident,
+      endTimeIncident,
+      dayStatus,
+      sickStatus,
+      startStatusDate,
+      endStatusDate,
+      mcRefNo,
       recommendedBy,
     }) =>
-      `1. Type of Incident:
+      `*${newStatus}*
+
+RSI/RSO/MA Reporting Template
+(Serviceman do not need to fill out SN 10 and 11)
+
+1. Type of Incident:
 Non-Training Related
- 
+
 2. Date & Time of Incident:
-030625/ 1320hrs
- 
+${format(new Date(dateIncident), "ddMMyy")}/ ${startTimeIncident}hrs
+
 3. Serviceman/Woman Involved: Rank/Name: ${rank} ${name}
 
 4. Serviceman/woman Unit/ Company Unit:
 1AMB/ 11FMD/ FMW2
- 
+
 5. Location: ${location}
- 
+
 6. Details of Incident:
-At 030625 around 1320hrs, serviceman RSI at SGMC for eye irritation.
- 
-At around 1445hrs, serviceman is being sent out to NTFGH for further diagnosis, accompanied by 3SG XXX.
+At ${format(
+        new Date(dateIncident),
+        "ddMMyy"
+      )} around ${startTimeIncident}hrs, serviceman went to ${typeSick} at ${
+        location == "Sungei Gedong Medical Centre" ? "SGMC" : location
+      } for ${reasonSick}.
+${
+  newStatus == "UPDATED"
+    ? `
+At around ${endTimeIncident}hrs, serviceman was given ${dayStatus} day ${sickStatus} from ${format(
+        new Date(dateIncident),
+        "ddMMyy"
+      )} to ${format(
+        addDays(new Date(dateIncident), Number(dayStatus) - 1),
+        "ddMMyy"
+      )}. ${mcRefNo ? `Ref No.: ${mcRefNo}` : ""}
+`
+    : ""
+}
+7. Injury/ Damages: NIL
 
-At around 1640hrs, serviceman issued 2 days of MC from 030625 to 040625. Ref No.: 123456789
- 
-7. Injury/ Damages:
-
-8. Follow-up Updates:
+8. Follow-up Updates: NIL
 
 9. NOK informed: Yes
- 
+
 10. Date/ Time Verbal Report to IHQ & GSOC:
- 
+
 11. Date/ Time of ESIS to GSOC:
- 
+
 12. Reporting Person: ${recommendedBy}`,
   },
 };
@@ -313,6 +380,14 @@ export default function Home() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newValues));
   };
 
+  function isFieldVisible(
+    field: TemplateField,
+    values: Record<string, string>
+  ) {
+    if (!field.showIf) return true;
+    return values[field.showIf.key] === field.showIf.equals;
+  }
+
   const handleGenerate = async () => {
     try {
       const relevantFields: Record<string, string> = {};
@@ -320,12 +395,20 @@ export default function Home() {
         relevantFields[key] = fieldValues[key] || "";
       });
 
-      const missing = template.fields.find(({ key }) => !fieldValues[key]);
+      const missing = template.fields.find(
+        (field) =>
+          isFieldVisible(field, fieldValues) &&
+          field.required !== false &&
+          (fieldValues[field.key] === undefined ||
+            fieldValues[field.key].trim() === "")
+      );
       if (missing) {
         return toast.error(`Please fill in the "${missing.label}" field.`);
       }
 
       for (const field of template.fields) {
+        if (!isFieldVisible(field, fieldValues)) continue;
+
         if (field.pattern && fieldValues[field.key]) {
           const regex = new RegExp(field.pattern);
           if (!regex.test(fieldValues[field.key])) {
@@ -428,85 +511,90 @@ export default function Home() {
       </div>
 
       <div className="space-y-4">
-        {template.fields.map((field) => (
-          <div key={field.key}>
-            <Label htmlFor={field.key}>{field.label}</Label>
-            {field.type === "input" && (
-              <Input
-                id={field.key}
-                value={fieldValues[field.key] || ""}
-                onChange={(e) => handleChange(field.key, e.target.value)}
-                placeholder={field.placeholder}
-              />
-            )}
-            {field.type === "textarea" && (
-              <Textarea
-                id={field.key}
-                value={fieldValues[field.key] || ""}
-                onChange={(e) => handleChange(field.key, e.target.value)}
-                placeholder={field.placeholder}
-                className="min-h-[100px]"
-              />
-            )}
-            {field.type === "select" && field.options && (
-              <Select
-                value={fieldValues[field.key] || ""}
-                onValueChange={(value) => handleChange(field.key, value)}
-              >
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={field.placeholder || "Select an option"}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {field.options.map((opt) => (
-                    <SelectItem key={opt} value={opt}>
-                      {opt}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            {field.type === "date" && (
-              <Popover
-                open={openPopoverKey === field.key}
-                onOpenChange={(open) =>
-                  setOpenPopoverKey(open ? field.key : null)
-                }
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={`w-full justify-start text-left font-normal ${
-                      fieldValues[field.key] ? "" : "text-muted-foreground"
-                    }`}
-                  >
-                    {fieldValues[field.key]
-                      ? format(new Date(fieldValues[field.key]), "yyyy-MM-dd")
-                      : field.placeholder || "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={
-                      fieldValues[field.key]
-                        ? new Date(fieldValues[field.key])
-                        : undefined
-                    }
-                    onSelect={(date) => {
-                      if (date) {
-                        handleChange(field.key, date.toISOString());
-                        setOpenPopoverKey(null); // 👈 Close the popover after selecting
+        {template.fields
+          .filter((field) => {
+            if (!field.showIf) return true;
+            return fieldValues[field.showIf.key] === field.showIf.equals;
+          })
+          .map((field) => (
+            <div key={field.key}>
+              <Label htmlFor={field.key}>{field.label}</Label>
+              {field.type === "input" && (
+                <Input
+                  id={field.key}
+                  value={fieldValues[field.key] || ""}
+                  onChange={(e) => handleChange(field.key, e.target.value)}
+                  placeholder={field.placeholder}
+                />
+              )}
+              {field.type === "textarea" && (
+                <Textarea
+                  id={field.key}
+                  value={fieldValues[field.key] || ""}
+                  onChange={(e) => handleChange(field.key, e.target.value)}
+                  placeholder={field.placeholder}
+                  className="min-h-[100px]"
+                />
+              )}
+              {field.type === "select" && field.options && (
+                <Select
+                  value={fieldValues[field.key] || ""}
+                  onValueChange={(value) => handleChange(field.key, value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={field.placeholder || "Select an option"}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {field.options.map((opt) => (
+                      <SelectItem key={opt} value={opt}>
+                        {opt}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {field.type === "date" && (
+                <Popover
+                  open={openPopoverKey === field.key}
+                  onOpenChange={(open) =>
+                    setOpenPopoverKey(open ? field.key : null)
+                  }
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={`w-full justify-start text-left font-normal ${
+                        fieldValues[field.key] ? "" : "text-muted-foreground"
+                      }`}
+                    >
+                      {fieldValues[field.key]
+                        ? format(new Date(fieldValues[field.key]), "yyyy-MM-dd")
+                        : field.placeholder || "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={
+                        fieldValues[field.key]
+                          ? new Date(fieldValues[field.key])
+                          : undefined
                       }
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            )}
-          </div>
-        ))}
+                      onSelect={(date) => {
+                        if (date) {
+                          handleChange(field.key, date.toISOString());
+                          setOpenPopoverKey(null); // 👈 Close the popover after selecting
+                        }
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+          ))}
 
         <Button onClick={handleGenerate} className="w-full">
           Generate Template
