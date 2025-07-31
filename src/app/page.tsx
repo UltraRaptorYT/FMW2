@@ -201,17 +201,17 @@ const templates: Record<string, TemplateDefinition> = {
       },
       { key: "name", label: "Name", type: "input", placeholder: "Your Name" },
       {
-        key: "typeSick",
-        label: "Status",
-        type: "select",
-        options: ["RSI", "RSO", "MA", "FFI", "ORD FFI"],
-      },
-      {
         key: "location",
         label: "Location",
         type: "input",
         placeholder: "Location of Medical Center",
         default: "Sungei Gedong Medical Centre",
+      },
+      {
+        key: "typeSick",
+        label: "Status",
+        type: "select",
+        options: ["RSI", "RSO", "MA", "FFI", "ORD FFI"],
       },
       { key: "dateIncident", label: "Date of Incident", type: "date" },
       {
@@ -295,7 +295,7 @@ Non-Training Related
 2. Date & Time of Incident:
 ${format(new Date(dateIncident), "ddMMyy")}/ ${startTimeIncident}hrs
 
-3. Serviceman/Woman Involved: Rank/Name: ${rank} ${name}
+3. Serviceman/Woman Involved: Rank/Name: ${rank} ${name.toUpperCase()}
 
 4. Serviceman/woman Unit/ Company Unit:
 1AMB/ 11FMD/ FMW2
@@ -308,7 +308,7 @@ At ${format(
         "ddMMyy"
       )} around ${startTimeIncident}hrs, serviceman went to ${typeSick} at ${
         location == "Sungei Gedong Medical Centre" ? "SGMC" : location
-      } for ${reasonSick}.
+      } for ${reasonSick.toUpperCase()}.
 ${
   newStatus == "UPDATED"
     ? `
