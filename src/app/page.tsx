@@ -57,6 +57,9 @@ const templates: Record<string, TemplateDefinition> = {
           "2SG",
           "2LT",
           "LTA",
+          "ME1T",
+          "ME1",
+          "ME2",
         ],
       },
       { key: "name", label: "Name", type: "input", placeholder: "Your Name" },
@@ -118,6 +121,9 @@ const templates: Record<string, TemplateDefinition> = {
           "2SG",
           "2LT",
           "LTA",
+          "ME1T",
+          "ME1",
+          "ME2",
         ],
       },
       { key: "name", label: "Name", type: "input", placeholder: "Your Name" },
@@ -181,6 +187,9 @@ const templates: Record<string, TemplateDefinition> = {
           "2SG",
           "2LT",
           "LTA",
+          "ME1T",
+          "ME1",
+          "ME2",
         ],
       },
       { key: "name", label: "Name", type: "input", placeholder: "Your Name" },
@@ -304,7 +313,7 @@ export default function Home() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newValues));
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     try {
       const relevantFields: Record<string, string> = {};
       template.fields.forEach(({ key }) => {
@@ -357,6 +366,16 @@ export default function Home() {
       const result = template.generate(relevantFields);
       setGenerated(result);
       toast.success("Template Generated!");
+
+      await fetch("/api/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          template: selectedType,
+          fields: relevantFields,
+          user_agent: navigator.userAgent,
+        }),
+      });
     } catch {
       toast.error("An unexpected error occurred. Try again.");
     }
