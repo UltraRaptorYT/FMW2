@@ -461,6 +461,7 @@ At around ${endTimeIncident}hrs, serviceman was given ${dayStatus} day ${sickSta
         type: "textarea",
         placeholder: "e.g. upcoming launch discussion",
         required: false,
+        showIf: { key: "vehiclePresent", equals: "true" },
       },
     ],
     generate: ({
