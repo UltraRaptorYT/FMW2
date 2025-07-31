@@ -20,11 +20,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type TemplateField = {
   key: string;
   label: string;
-  type: "input" | "textarea" | "select" | "date";
+  type: "input" | "textarea" | "select" | "date" | "checkbox";
   placeholder?: string;
   options?: string[];
   required?: boolean;
@@ -98,10 +99,14 @@ const templates: Record<string, TemplateDefinition> = {
     }) =>
       `• Rank/Name: ${rank} ${name.toUpperCase()}
 • Reason for Accumulation: ${offAwardReason}
-• Dates Accumulated: ${format(new Date(startDate), "dd MMMM")} to ${format(
-        new Date(endDate),
-        "dd MMMM"
-      )}
+• Dates Accumulated: ${
+        startDate === endDate
+          ? format(new Date(startDate), "d MMMM")
+          : `${format(new Date(startDate), "d MMMM")} to ${format(
+              new Date(endDate),
+              "d MMMM"
+            )}`
+      }
 • Balance (After Accumulation): ${balance}
 • Recommended By: ${recommendedBy}`,
   },
@@ -164,9 +169,9 @@ const templates: Record<string, TemplateDefinition> = {
     }) =>
       ` • Rank/Name: ${rank} ${name.toUpperCase()}
  • Type: ${typeOff}
- • Dates: ${format(new Date(startDate), "dd MMMM")} to ${format(
+ • Dates: ${format(new Date(startDate), "d MMMM")} to ${format(
         new Date(endDate),
-        "dd MMMM"
+        "d MMMM"
       )}
  • Balance Left: ${balance}
  • Recommended By: ${recommendedBy}`,
@@ -334,11 +339,181 @@ At around ${endTimeIncident}hrs, serviceman was given ${dayStatus} day ${sickSta
 
 12. Reporting Person: ${recommendedBy}`,
   },
+  hullBOS: {
+    name: "HULL BOS Template",
+    fields: [
+      {
+        key: "mid",
+        label: "Vehicle MID",
+        type: "input",
+        placeholder: "MID Number",
+        pattern: "^\\d{5}$",
+      },
+      {
+        key: "vehiclePresent",
+        label: "Is Vehicle Present?",
+        type: "checkbox",
+        default: "true",
+      },
+      {
+        key: "vehicleStatus",
+        label: "Vehicle Not Present Reason",
+        type: "input",
+        showIf: { key: "vehiclePresent", equals: "false" },
+      },
+      {
+        key: "vehicleLocation",
+        label: "Vehicle Location",
+        type: "input",
+        placeholder: "Vehicle Location",
+        default: "MSVS Level ",
+      },
+      {
+        key: "bosDate",
+        label: "Date of BOS",
+        type: "date",
+        showIf: { key: "vehiclePresent", equals: "true" },
+      },
+      {
+        key: "bosTime",
+        label: "Time of BOS",
+        type: "input",
+        placeholder: "e.g. 1320",
+        pattern: "^([01][0-9]|2[0-3])[0-5][0-9]$",
+        errorMessage: "Time must be in 24hr format (e.g. 1320)",
+        showIf: { key: "vehiclePresent", equals: "true" },
+      },
+      {
+        key: "odo",
+        label: "Odometer",
+        type: "input",
+        placeholder: "Odo",
+        pattern: "^\\d+(\\.\\d+)?$",
+        showIf: { key: "vehiclePresent", equals: "true" },
+      },
+      {
+        key: "eh",
+        label: "Engine Hour",
+        type: "input",
+        placeholder: "Engine Hour",
+        pattern: "^\\d+$",
+        showIf: { key: "vehiclePresent", equals: "true" },
+      },
+      {
+        key: "auxPercent",
+        label: "Auxiliary Battery Percent",
+        type: "input",
+        placeholder: "Auxiliary Battery Percent",
+        pattern: "^\\d+$",
+        showIf: { key: "vehiclePresent", equals: "true" },
+      },
+      {
+        key: "auxVolt",
+        label: "Auxiliary Battery",
+        type: "input",
+        placeholder: "Auxiliary Battery Voltage",
+        pattern: "^\\d+(\\.\\d+)?$",
+        showIf: { key: "vehiclePresent", equals: "true" },
+      },
+      {
+        key: "starterPercent",
+        label: "Starter Battery Percent",
+        type: "input",
+        placeholder: "Starter Battery Percent",
+        pattern: "^\\d+$",
+        showIf: { key: "vehiclePresent", equals: "true" },
+      },
+      {
+        key: "starterVolt",
+        label: "Starter Battery",
+        type: "input",
+        placeholder: "Starter Battery Voltage",
+        pattern: "^\\d+(\\.\\d+)?$",
+        showIf: { key: "vehiclePresent", equals: "true" },
+      },
+      {
+        key: "fuelPercent",
+        label: "Fuel Percent",
+        type: "input",
+        placeholder: "Fuel Percent",
+        pattern: "^\\d+$",
+        showIf: { key: "vehiclePresent", equals: "true" },
+      },
+      {
+        key: "fuelLitre",
+        label: "Fuel Litre",
+        type: "input",
+        placeholder: "Fuel Litre",
+        pattern: "^\\d+$",
+        showIf: { key: "vehiclePresent", equals: "true" },
+      },
+      {
+        key: "afesExpiry",
+        label: "AFES Expiry (Remember it is +5 years from the labelled AFES)",
+        type: "input",
+        placeholder: "AFES Expiry eg. 01/2025, 12/2030 etc.",
+        pattern: "^(0[1-9]|1[0-2])/20\\d{2}$",
+        showIf: { key: "vehiclePresent", equals: "true" },
+      },
+      {
+        key: "faults",
+        label: "Faults",
+        type: "textarea",
+        placeholder: "e.g. upcoming launch discussion",
+        required: false,
+      },
+    ],
+    generate: ({
+      mid,
+      vehiclePresent,
+      vehicleStatus,
+      vehicleLocation,
+      bosDate,
+      bosTime,
+      odo,
+      eh,
+      auxPercent,
+      auxVolt,
+      starterPercent,
+      starterVolt,
+      fuelPercent,
+      fuelLitre,
+      afesExpiry,
+      faults,
+    }) => `MID ${mid}${vehiclePresent === "true" ? "✅" : "⏳"} ${
+      vehiclePresent !== "true" ? `(${vehicleStatus})` : ""
+    }
+📍 ${vehicleLocation}
+📅 ${bosDate ? format(new Date(bosDate), "dd/MM/yy") : "[Date]"} 🕚 ${
+      bosTime ? `${bosTime}hrs` : "[Time]"
+    }
+ODO: ${odo ? `${odo}km` : "[xx]"} | EH: ${eh ? `${eh}hrs` : "[xx]"}
+🔋 AUX: ${auxPercent ? `${auxPercent}%` : "[%]"} ${
+      auxVolt ? `${auxVolt}V` : "[V]"
+    } | STARTER: ${starterPercent ? `${starterPercent}%` : "[%]"} ${
+      starterVolt ? `${starterVolt}V` : "[V]"
+    }
+⛽️ FUEL: ${fuelPercent ? `${fuelPercent}%` : "[%]"} ${
+      fuelLitre ? `${fuelLitre}L` : "[L]"
+    }
+🔥 AFES EXPIRY: ${afesExpiry ? `${afesExpiry}` : "[MM/YYYY]"}
+🛠️ Faults: ${
+      vehiclePresent === "true"
+        ? faults
+          ? `\n${faults
+              .split("\n")
+              .map((e) => `• ${e}`)
+              .join("\n")}`
+          : "NIL"
+        : "\n• [Fault Description]"
+    }`,
+  },
 };
 
 const STORAGE_KEY = "fmw2";
 
 export default function Home() {
+  const [loading, setLoading] = useState(false);
   const [selectedType, setSelectedType] = useState<string>(
     Object.keys(templates)[0]
   );
@@ -389,19 +564,22 @@ export default function Home() {
   }
 
   const handleGenerate = async () => {
+    setLoading(true);
     try {
       const relevantFields: Record<string, string> = {};
       template.fields.forEach(({ key }) => {
         relevantFields[key] = fieldValues[key] || "";
       });
 
-      const missing = template.fields.find(
-        (field) =>
+      const missing = template.fields.find((field) => {
+        const isRequired = field.required ?? true;
+        return (
           isFieldVisible(field, fieldValues) &&
-          field.required !== false &&
+          isRequired &&
           (fieldValues[field.key] === undefined ||
             fieldValues[field.key].trim() === "")
-      );
+        );
+      });
       if (missing) {
         return toast.error(`Please fill in the "${missing.label}" field.`);
       }
@@ -419,7 +597,13 @@ export default function Home() {
         }
       }
 
-      const dateFields = template.fields.filter((f) => f.type === "date");
+      const dateFields = template.fields.filter(
+        (f) =>
+          f.type === "date" &&
+          isFieldVisible(f, fieldValues) &&
+          f.required !== false &&
+          (fieldValues[f.key] === undefined || fieldValues[f.key].trim() === "")
+      );
       for (const field of dateFields) {
         const value = fieldValues[field.key];
         if (!value || isNaN(new Date(value).getTime())) {
@@ -446,6 +630,7 @@ export default function Home() {
       }
 
       // 4. Generate result
+      console.log(relevantFields);
       const result = template.generate(relevantFields);
       setGenerated(result);
       toast.success("Template Generated!");
@@ -461,6 +646,8 @@ export default function Home() {
       });
     } catch {
       toast.error("An unexpected error occurred. Try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -492,8 +679,8 @@ export default function Home() {
             });
 
             setFieldValues((prev) => ({
-              ...prev,
               ...defaults,
+              ...prev,
             }));
           }}
         >
@@ -593,11 +780,22 @@ export default function Home() {
                   </PopoverContent>
                 </Popover>
               )}
+              {field.type === "checkbox" && (
+                <div className="flex items-center space-x-2 mt-1">
+                  <Checkbox
+                    id={field.key}
+                    checked={fieldValues[field.key] == "true"}
+                    onCheckedChange={(checked) =>
+                      handleChange(field.key, checked ? "true" : "false")
+                    }
+                  />
+                </div>
+              )}
             </div>
           ))}
 
-        <Button onClick={handleGenerate} className="w-full">
-          Generate Template
+        <Button onClick={handleGenerate} className="w-full" disabled={loading}>
+          {loading ? "Generating..." : "Generate Template"}
         </Button>
       </div>
 
