@@ -1,103 +1,532 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState, useRef } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+
+type TemplateField = {
+  key: string;
+  label: string;
+  type: "input" | "textarea" | "select" | "date";
+  placeholder?: string;
+  options?: string[];
+  required?: boolean;
+  pattern?: string;
+  errorMessage?: string;
+  default?: string;
+};
+
+type TemplateDefinition = {
+  name: string;
+  fields: TemplateField[];
+  generate: (fields: Record<string, string>) => string;
+};
+
+const templates: Record<string, TemplateDefinition> = {
+  offAwarded: {
+    name: "Off Awarded",
+    fields: [
+      {
+        key: "rank",
+        label: "Rank",
+        type: "select",
+        options: [
+          "REC",
+          "PTE",
+          "LCP",
+          "CPL",
+          "CFC",
+          "3SG",
+          "2SG",
+          "2LT",
+          "LTA",
+        ],
+      },
+      { key: "name", label: "Name", type: "input", placeholder: "Your Name" },
+      {
+        key: "offAwardReason",
+        label: "Reason for Off Awarded",
+        type: "input",
+        placeholder: "e.g. Support for weekend tasking, holiday duty, etc.",
+      },
+      { key: "startDate", label: "Start Date", type: "date" },
+      { key: "endDate", label: "End Date", type: "date" },
+      {
+        key: "balance",
+        label: "Balance Left",
+        type: "input",
+        placeholder: "Balance Left",
+        pattern: "^\\d+(\\.\\d+)?$",
+      },
+      {
+        key: "recommendedBy",
+        label: "Recommended By",
+        type: "input",
+        placeholder: "Rank/Name of AMTT/MTT",
+        default: "ME3 Hoon",
+      },
+    ],
+    generate: ({
+      rank,
+      name,
+      offAwardReason,
+      startDate,
+      endDate,
+      balance,
+      recommendedBy,
+    }) =>
+      `• Rank/Name: ${rank} ${name.toUpperCase()}
+• Reason for Accumulation: ${offAwardReason}
+• Dates Accumulated: ${format(new Date(startDate), "dd MMMM")} to ${format(
+        new Date(endDate),
+        "dd MMMM"
+      )}
+• Balance (After Accumulation): ${balance}
+• Recommended By: ${recommendedBy}`,
+  },
+  offTemplate: {
+    name: "Leave/Off Application Template",
+    fields: [
+      {
+        key: "rank",
+        label: "Rank",
+        type: "select",
+        options: [
+          "REC",
+          "PTE",
+          "LCP",
+          "CPL",
+          "CFC",
+          "3SG",
+          "2SG",
+          "2LT",
+          "LTA",
+        ],
+      },
+      { key: "name", label: "Name", type: "input", placeholder: "Your Name" },
+      {
+        key: "typeOff",
+        label: "Type",
+        type: "input",
+        placeholder: "Leave / Off if OL, indicate country",
+        pattern: "^(Off|Leave|OL - .+)$",
+        errorMessage: 'Must be "Off", "Leave", or "OL - [country]"',
+      },
+      { key: "startDate", label: "Start Date", type: "date" },
+      { key: "endDate", label: "End Date", type: "date" },
+      {
+        key: "balance",
+        label: "Balance Left",
+        type: "input",
+        placeholder: "Balance Left",
+        pattern: "^\\d+(\\.\\d+)?$",
+      },
+      {
+        key: "recommendedBy",
+        label: "Recommended By",
+        type: "input",
+        placeholder: "Rank/Name of AMTT/MTT",
+        default: "ME3 Hoon",
+      },
+    ],
+    generate: ({
+      rank,
+      name,
+      typeOff,
+      startDate,
+      endDate,
+      balance,
+      recommendedBy,
+    }) =>
+      ` • Rank/Name: ${rank} ${name.toUpperCase()}
+ • Type: ${typeOff}
+ • Dates: ${format(new Date(startDate), "dd MMMM")} to ${format(
+        new Date(endDate),
+        "dd MMMM"
+      )}
+ • Balance Left: ${balance}
+ • Recommended By: ${recommendedBy}`,
+  },
+  reportSick: {
+    name: "RSI/RSO/MA Reporting Template",
+    fields: [
+      {
+        key: "rank",
+        label: "Rank",
+        type: "select",
+        options: [
+          "REC",
+          "PTE",
+          "LCP",
+          "CPL",
+          "CFC",
+          "3SG",
+          "2SG",
+          "2LT",
+          "LTA",
+        ],
+      },
+      { key: "name", label: "Name", type: "input", placeholder: "Your Name" },
+      {
+        key: "location",
+        label: "Location",
+        type: "input",
+        placeholder: "Location of Medical Center",
+        default: "Sungei Gedong Medical Centre",
+      },
+      {
+        key: "typeReport",
+        label: "Type",
+        type: "input",
+        placeholder: "Leave / Off if OL, indicate country",
+        pattern: "^(Off|Leave|OL - .+)$",
+        errorMessage: 'Must be "Off", "Leave", or "OL - [country]"',
+      },
+      { key: "date", label: "Date", type: "date" },
+      { key: "endDate", label: "End Date", type: "date" },
+      {
+        key: "balance",
+        label: "Balance Left",
+        type: "input",
+        placeholder: "Balance Left",
+        pattern: "^\\d+(\\.\\d+)?$",
+      },
+      {
+        key: "recommendedBy",
+        label: "Recommended By",
+        type: "input",
+        placeholder: "Rank/Name of AMTT/MTT",
+        default: "ME3 Hoon",
+      },
+    ],
+    generate: ({
+      rank,
+      name,
+      typeOff,
+      location,
+      date,
+      endDate,
+      balance,
+      recommendedBy,
+    }) =>
+      `1. Type of Incident:
+Non-Training Related
+ 
+2. Date & Time of Incident:
+030625/ 1320hrs
+ 
+3. Serviceman/Woman Involved: Rank/Name: ${rank} ${name}
+
+4. Serviceman/woman Unit/ Company Unit:
+1AMB/ 11FMD/ FMW2
+ 
+5. Location: ${location}
+ 
+6. Details of Incident:
+At 030625 around 1320hrs, serviceman RSI at SGMC for eye irritation.
+ 
+At around 1445hrs, serviceman is being sent out to NTFGH for further diagnosis, accompanied by 3SG XXX.
+
+At around 1640hrs, serviceman issued 2 days of MC from 030625 to 040625. Ref No.: 123456789
+ 
+7. Injury/ Damages:
+
+8. Follow-up Updates:
+
+9. NOK informed: Yes
+ 
+10. Date/ Time Verbal Report to IHQ & GSOC:
+ 
+11. Date/ Time of ESIS to GSOC:
+ 
+12. Reporting Person: ${recommendedBy}`,
+  },
+};
+
+const STORAGE_KEY = "fmw2";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [selectedType, setSelectedType] = useState<string>(
+    Object.keys(templates)[0]
+  );
+  const [openPopoverKey, setOpenPopoverKey] = useState<string | null>(null);
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [generated, setGenerated] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const template = templates[selectedType];
+
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const initialValues: Record<string, string> = {};
+
+    const defaultTemplate = templates[selectedType];
+
+    defaultTemplate.fields.forEach((field) => {
+      if (field.default !== undefined) {
+        initialValues[field.key] = field.default;
+      }
+    });
+
+    if (saved) {
+      try {
+        const savedParsed = JSON.parse(saved);
+        setFieldValues({ ...initialValues, ...savedParsed }); // 👈 merge default first, then saved
+      } catch {
+        console.warn("Failed to parse saved field values");
+        setFieldValues(initialValues);
+      }
+    } else {
+      setFieldValues(initialValues);
+    }
+  }, []);
+
+  const handleChange = (key: string, value: string) => {
+    const newValues = { ...fieldValues, [key]: value };
+    setFieldValues(newValues);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newValues));
+  };
+
+  const handleGenerate = () => {
+    try {
+      const relevantFields: Record<string, string> = {};
+      template.fields.forEach(({ key }) => {
+        relevantFields[key] = fieldValues[key] || "";
+      });
+
+      const missing = template.fields.find(({ key }) => !fieldValues[key]);
+      if (missing) {
+        return toast.error(`Please fill in the "${missing.label}" field.`);
+      }
+
+      for (const field of template.fields) {
+        if (field.pattern && fieldValues[field.key]) {
+          const regex = new RegExp(field.pattern);
+          if (!regex.test(fieldValues[field.key])) {
+            return toast.error(
+              field.errorMessage || `Invalid input in "${field.label}".`
+            );
+          }
+        }
+      }
+
+      const dateFields = template.fields.filter((f) => f.type === "date");
+      for (const field of dateFields) {
+        const value = fieldValues[field.key];
+        if (!value || isNaN(new Date(value).getTime())) {
+          return toast.error(
+            `Please select a valid date for "${field.label}".`
+          );
+        }
+      }
+
+      const startKey = template.fields.find(
+        (f) => f.key.toLowerCase().includes("start") && f.type === "date"
+      )?.key;
+      const endKey = template.fields.find(
+        (f) => f.key.toLowerCase().includes("end") && f.type === "date"
+      )?.key;
+
+      if (startKey && endKey) {
+        const start = new Date(fieldValues[startKey]);
+        const end = new Date(fieldValues[endKey]);
+
+        if (end < start) {
+          return toast.error("End date must be after or same as start date.");
+        }
+      }
+
+      // 4. Generate result
+      const result = template.generate(relevantFields);
+      setGenerated(result);
+      toast.success("Template Generated!");
+    } catch {
+      toast.error("An unexpected error occurred. Try again.");
+    }
+  };
+
+  const handleCopy = () => {
+    if (textareaRef.current) {
+      navigator.clipboard.writeText(textareaRef.current.value).then(() => {
+        toast.success("Copied to clipboard!");
+      });
+    }
+  };
+
+  return (
+    <main className="max-w-xl mx-auto py-10 px-4 space-y-6">
+      <h1 className="text-3xl font-bold text-center">📝 Template Generator</h1>
+
+      <div>
+        <Label>Choose a Template</Label>
+        <Select
+          value={selectedType}
+          onValueChange={(val) => {
+            setSelectedType(val);
+            setGenerated("");
+
+            const defaults: Record<string, string> = {};
+            templates[val].fields.forEach((f) => {
+              if (f.default !== undefined) {
+                defaults[f.key] = f.default;
+              }
+            });
+
+            setFieldValues((prev) => ({
+              ...prev,
+              ...defaults,
+            }));
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select a type" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(templates).map(([key, tpl]) => (
+              <SelectItem key={key} value={key}>
+                {tpl.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-4">
+        {template.fields.map((field) => (
+          <div key={field.key}>
+            <Label htmlFor={field.key}>{field.label}</Label>
+            {field.type === "input" && (
+              <Input
+                id={field.key}
+                value={fieldValues[field.key] || ""}
+                onChange={(e) => handleChange(field.key, e.target.value)}
+                placeholder={field.placeholder}
+              />
+            )}
+            {field.type === "textarea" && (
+              <Textarea
+                id={field.key}
+                value={fieldValues[field.key] || ""}
+                onChange={(e) => handleChange(field.key, e.target.value)}
+                placeholder={field.placeholder}
+                className="min-h-[100px]"
+              />
+            )}
+            {field.type === "select" && field.options && (
+              <Select
+                value={fieldValues[field.key] || ""}
+                onValueChange={(value) => handleChange(field.key, value)}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={field.placeholder || "Select an option"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {field.options.map((opt) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {field.type === "date" && (
+              <Popover
+                open={openPopoverKey === field.key}
+                onOpenChange={(open) =>
+                  setOpenPopoverKey(open ? field.key : null)
+                }
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={`w-full justify-start text-left font-normal ${
+                      fieldValues[field.key] ? "" : "text-muted-foreground"
+                    }`}
+                  >
+                    {fieldValues[field.key]
+                      ? format(new Date(fieldValues[field.key]), "yyyy-MM-dd")
+                      : field.placeholder || "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={
+                      fieldValues[field.key]
+                        ? new Date(fieldValues[field.key])
+                        : undefined
+                    }
+                    onSelect={(date) => {
+                      if (date) {
+                        handleChange(field.key, date.toISOString());
+                        setOpenPopoverKey(null); // 👈 Close the popover after selecting
+                      }
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
+        ))}
+
+        <Button onClick={handleGenerate} className="w-full">
+          Generate Template
+        </Button>
+      </div>
+
+      {generated && (
+        <div className="space-y-2">
+          <Label>Generated Result</Label>
+          <Textarea
+            ref={textareaRef}
+            value={generated}
+            readOnly
+            className="min-h-[120px]"
+            onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+          />
+          <div className="flex justify-between">
+            <Button variant="outline" onClick={handleCopy}>
+              📋 Copy
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                localStorage.removeItem(STORAGE_KEY);
+                const newDefaults: Record<string, string> = {};
+                templates[selectedType].fields.forEach((field) => {
+                  if (field.default !== undefined) {
+                    newDefaults[field.key] = field.default;
+                  }
+                });
+                setFieldValues(newDefaults);
+                toast.info("Reset to default values");
+              }}
+            >
+              Reset to Default
+            </Button>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      )}
+    </main>
   );
 }
