@@ -144,6 +144,18 @@ const templates: Record<string, TemplateDefinition> = {
       { key: "startDate", label: "Start Date", type: "date" },
       { key: "endDate", label: "End Date", type: "date" },
       {
+        key: "isHalfDay",
+        label: "Is Half Day?",
+        type: "checkbox",
+      },
+      {
+        key: "timeOff",
+        label: "AM OFF/PM OFF",
+        type: "select",
+        options: ["AM", "PM"],
+        showIf: { key: "isHalfDay", equals: "true" },
+      },
+      {
         key: "balance",
         label: "Balance Left",
         type: "input",
@@ -164,15 +176,21 @@ const templates: Record<string, TemplateDefinition> = {
       typeOff,
       startDate,
       endDate,
+      isHalfDay,
+      timeOff,
       balance,
       recommendedBy,
     }) =>
       ` • Rank/Name: ${rank} ${name.toUpperCase()}
  • Type: ${typeOff}
- • Dates: ${format(new Date(startDate), "d MMMM")} to ${format(
-        new Date(endDate),
-        "d MMMM"
-      )}
+ • Dates: ${
+   startDate === endDate
+     ? format(new Date(startDate), "d MMMM")
+     : `${format(new Date(startDate), "d MMMM")} to ${format(
+         new Date(endDate),
+         "d MMMM"
+       )}`
+ } ${isHalfDay && `[${timeOff}]`}
  • Balance Left: ${balance}
  • Recommended By: ${recommendedBy}`,
   },
@@ -284,8 +302,6 @@ const templates: Record<string, TemplateDefinition> = {
       endTimeIncident,
       dayStatus,
       sickStatus,
-      startStatusDate,
-      endStatusDate,
       mcRefNo,
       recommendedBy,
     }) =>
@@ -642,6 +658,7 @@ export default function Home() {
         body: JSON.stringify({
           template: selectedType,
           fields: relevantFields,
+          template_type: template.name,
           user_agent: navigator.userAgent,
         }),
       });

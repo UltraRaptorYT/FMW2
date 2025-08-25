@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
       template: body.template,
       fields: body.fields,
       user_agent: body.user_agent,
+      template_type: body.template_type,
     },
   ]);
 
