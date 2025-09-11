@@ -190,7 +190,7 @@ const templates: Record<string, TemplateDefinition> = {
          new Date(endDate),
          "d MMMM"
        )}`
- } ${isHalfDay && `[${timeOff}]`}
+ } ${isHalfDay && timeOff && `[${timeOff}]`}
  • Balance Left: ${balance}
  • Recommended By: ${recommendedBy}`,
   },
