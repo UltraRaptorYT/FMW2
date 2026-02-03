@@ -577,6 +577,7 @@ BLK420: ${Number(psNightStrength.match(/^\s*STAYIN:\s*(\d+)\s*$/m)?.[1] ?? 0) - 
 };
 
 const STORAGE_KEY = "fmw2";
+const STORAGE_TYPE_KEY = `${STORAGE_KEY}:selectedType`;
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -589,6 +590,33 @@ export default function Home() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const template = templates[selectedType];
+
+  useEffect(() => {
+    const savedType = localStorage.getItem(STORAGE_TYPE_KEY);
+    const initialType =
+      savedType && templates[savedType] ? savedType : Object.keys(templates)[0];
+
+    setSelectedType(initialType);
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+
+    const initialValues: Record<string, string> = {};
+    templates[initialType].fields.forEach((field) => {
+      if (field.default !== undefined) initialValues[field.key] = field.default;
+    });
+
+    if (saved) {
+      try {
+        const savedParsed = JSON.parse(saved);
+        setFieldValues({ ...initialValues, ...savedParsed });
+      } catch {
+        console.warn("Failed to parse saved field values");
+        setFieldValues(initialValues);
+      }
+    } else {
+      setFieldValues(initialValues);
+    }
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -736,6 +764,7 @@ export default function Home() {
         <Select
           value={selectedType}
           onValueChange={(val) => {
+            localStorage.setItem(STORAGE_TYPE_KEY, val);
             setSelectedType(val);
             setGenerated("");
 
