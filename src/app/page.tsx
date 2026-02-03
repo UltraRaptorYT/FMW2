@@ -104,7 +104,7 @@ const templates: Record<string, TemplateDefinition> = {
           ? format(new Date(startDate), "d MMMM")
           : `${format(new Date(startDate), "d MMMM")} to ${format(
               new Date(endDate),
-              "d MMMM"
+              "d MMMM",
             )}`
       }
 • Balance (After Accumulation): ${balance}
@@ -188,7 +188,7 @@ const templates: Record<string, TemplateDefinition> = {
      ? format(new Date(startDate), "d MMMM")
      : `${format(new Date(startDate), "d MMMM")} to ${format(
          new Date(endDate),
-         "d MMMM"
+         "d MMMM",
        )}`
  } ${isHalfDay && timeOff && `[${timeOff}]`}
  • Balance Left: ${balance}
@@ -326,7 +326,7 @@ ${format(new Date(dateIncident), "ddMMyy")}/ ${startTimeIncident}hrs
 6. Details of Incident:
 At ${format(
         new Date(dateIncident),
-        "ddMMyy"
+        "ddMMyy",
       )} around ${startTimeIncident}hrs, serviceman went to ${typeSick} at ${
         location == "Sungei Gedong Medical Centre" ? "SGMC" : location
       } for ${reasonSick.toUpperCase()}.
@@ -335,10 +335,10 @@ ${
     ? `
 At around ${endTimeIncident}hrs, serviceman was given ${dayStatus} day ${sickStatus} from ${format(
         new Date(dateIncident),
-        "ddMMyy"
+        "ddMMyy",
       )} to ${format(
         addDays(new Date(dateIncident), Number(dayStatus) - 1),
-        "ddMMyy"
+        "ddMMyy",
       )}. ${mcRefNo ? `Ref No.: ${mcRefNo}` : ""}
 `
     : ""
@@ -525,6 +525,55 @@ ODO: ${odo ? `${odo}km` : "[xx]"} | EH: ${eh ? `${eh}hrs` : "[xx]"}
         : "\n• [Fault Description]"
     }`,
   },
+  nightStrength: {
+    name: "Night Strength",
+    fields: [
+      {
+        key: "rank",
+        label: "Rank",
+        type: "select",
+        options: [
+          "REC",
+          "PTE",
+          "LCP",
+          "CPL",
+          "CFC",
+          "3SG",
+          "2SG",
+          "2LT",
+          "LTA",
+          "ME1T",
+          "ME1",
+          "ME2",
+        ],
+      },
+      { key: "name", label: "Name", type: "input", placeholder: "Your Name" },
+      {
+        key: "psNightStrength",
+        label: "PS Night Strength",
+        type: "textarea",
+        placeholder: "HERE IS THE NIGHT STRENGTH FOR TODAY ...",
+      },
+      {
+        key: "blk210",
+        label: "Blk 210 Strength",
+        type: "input",
+        placeholder: "Blk 210 Strength",
+      },
+    ],
+    generate: ({
+      rank,
+      name,
+      psNightStrength,
+      blk210,
+    }) => `11FMD NIGHT STRENGTH ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, "/")} BY ${rank} ${name.toUpperCase()}
+
+${psNightStrength}
+
+STAYIN DETAILS
+BLK210: ${blk210}
+BLK420: ${Number(psNightStrength.match(/^\s*STAYIN:\s*(\d+)\s*$/m)?.[1] ?? 0) - Number(blk210)}`,
+  },
 };
 
 const STORAGE_KEY = "fmw2";
@@ -532,7 +581,7 @@ const STORAGE_KEY = "fmw2";
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [selectedType, setSelectedType] = useState<string>(
-    Object.keys(templates)[0]
+    Object.keys(templates)[0],
   );
   const [openPopoverKey, setOpenPopoverKey] = useState<string | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
@@ -574,7 +623,7 @@ export default function Home() {
 
   function isFieldVisible(
     field: TemplateField,
-    values: Record<string, string>
+    values: Record<string, string>,
   ) {
     if (!field.showIf) return true;
     return values[field.showIf.key] === field.showIf.equals;
@@ -608,7 +657,7 @@ export default function Home() {
           const regex = new RegExp(field.pattern);
           if (!regex.test(fieldValues[field.key])) {
             return toast.error(
-              field.errorMessage || `Invalid input in "${field.label}".`
+              field.errorMessage || `Invalid input in "${field.label}".`,
             );
           }
         }
@@ -619,22 +668,23 @@ export default function Home() {
           f.type === "date" &&
           isFieldVisible(f, fieldValues) &&
           f.required !== false &&
-          (fieldValues[f.key] === undefined || fieldValues[f.key].trim() === "")
+          (fieldValues[f.key] === undefined ||
+            fieldValues[f.key].trim() === ""),
       );
       for (const field of dateFields) {
         const value = fieldValues[field.key];
         if (!value || isNaN(new Date(value).getTime())) {
           return toast.error(
-            `Please select a valid date for "${field.label}".`
+            `Please select a valid date for "${field.label}".`,
           );
         }
       }
 
       const startKey = template.fields.find(
-        (f) => f.key.toLowerCase().includes("start") && f.type === "date"
+        (f) => f.key.toLowerCase().includes("start") && f.type === "date",
       )?.key;
       const endKey = template.fields.find(
-        (f) => f.key.toLowerCase().includes("end") && f.type === "date"
+        (f) => f.key.toLowerCase().includes("end") && f.type === "date",
       )?.key;
 
       if (startKey && endKey) {
