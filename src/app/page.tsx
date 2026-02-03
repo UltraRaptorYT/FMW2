@@ -561,18 +561,55 @@ ODO: ${odo ? `${odo}km` : "[xx]"} | EH: ${eh ? `${eh}hrs` : "[xx]"}
         placeholder: "Blk 210 Strength",
       },
     ],
-    generate: ({
-      rank,
-      name,
-      psNightStrength,
-      blk210,
-    }) => `11FMD NIGHT STRENGTH ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, "/")} BY ${rank} ${name.toUpperCase()}
+    generate: ({ rank, name, psNightStrength, blk210 }) => {
+      const todayDate = new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
 
-${psNightStrength}
+      const stayIn = Number(
+        psNightStrength.match(/^\s*STAYIN:\s*(\d+)\s*$/m)?.[1] ?? 0,
+      );
+      const stayOut = Number(
+        psNightStrength.match(/^\s*STAYOUT:\s*(\d+)\s*$/m)?.[1] ?? 0,
+      );
+
+      const outstation = Number(
+        psNightStrength.match(/^\s*OS:\s*(\d+)\s*$/m)?.[1] ?? 0,
+      );
+      const others = Number(
+        psNightStrength.match(/^\s*OTHERS:\s*(\d+)\s*$/m)?.[1] ?? 0,
+      );
+      const rso = Number(
+        psNightStrength.match(/^\s*RSO:\s*(\d+)\s*$/m)?.[1] ?? 0,
+      );
+      const rsi = Number(
+        psNightStrength.match(/^\s*RSI:\s*(\d+)\s*$/m)?.[1] ?? 0,
+      );
+
+      const blk420 = stayIn - Number(blk210);
+
+      const moved = outstation + others + rso + rsi;
+      const newStayOut = stayOut + moved;
+
+      // 1) Set OS/OTHERS/RSO/RSI to 0 in the displayed text
+      // 2) Update STAYOUT to include the moved counts
+      const psNightStrengthAdj = psNightStrength
+        .replace(/^\s*OS:\s*\d+\s*$/m, "OS: 0")
+        .replace(/^\s*OTHERS:\s*\d+\s*$/m, "OTHERS: 0")
+        .replace(/^\s*RSO:\s*\d+\s*$/m, "RSO: 0")
+        .replace(/^\s*RSI:\s*\d+\s*$/m, "RSI: 0")
+        .replace(/^\s*STAYOUT:\s*\d+\s*$/m, `STAYOUT: ${newStayOut}`);
+
+      return `11FMD NIGHT STRENGTH ${todayDate} BY ${rank} ${name.toUpperCase()}
+
+${psNightStrengthAdj}
 
 STAYIN DETAILS
 BLK210: ${blk210}
-BLK420: ${Number(psNightStrength.match(/^\s*STAYIN:\s*(\d+)\s*$/m)?.[1] ?? 0) - Number(blk210)}`,
+BLK420: ${blk420}`;
+    },
   },
 };
 
