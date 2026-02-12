@@ -672,6 +672,7 @@ function GuardDutyUI({ onGenerate }: { onGenerate: (result: string) => void }) {
         setSelectedMonth(parsed.selectedMonth ?? now.getMonth());
         setSelectedYear(parsed.selectedYear ?? now.getFullYear());
         setEntries(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (parsed.entries ?? []).map((e: any) => ({
             ...e,
             date: new Date(e.date),
