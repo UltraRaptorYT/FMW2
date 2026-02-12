@@ -39,6 +39,15 @@ type TemplateDefinition = {
   name: string;
   fields: TemplateField[];
   generate: (fields: Record<string, string>) => string;
+  customUI?: boolean;
+};
+
+type ICType = "2IC" | "3IC" | "4IC";
+
+type GuardDutyEntry = {
+  date: Date;
+  icTypes: ICType[];
+  numGuards: number;
 };
 
 const templates: Record<string, TemplateDefinition> = {
@@ -593,8 +602,6 @@ ODO: ${odo ? `${odo}km` : "[xx]"} | EH: ${eh ? `${eh}hrs` : "[xx]"}
       const moved = outstation + others + rso + rsi;
       const newStayOut = stayOut + moved;
 
-      // 1) Set OS/OTHERS/RSO/RSI to 0 in the displayed text
-      // 2) Update STAYOUT to include the moved counts
       const psNightStrengthAdj = psNightStrength
         .replace(/^\s*OS:\s*\d+\s*$/m, "OS: 0")
         .replace(/^\s*OTHERS:\s*\d+\s*$/m, "OTHERS: 0")
@@ -611,10 +618,334 @@ BLK210: ${blk210}
 BLK420: ${blk420}`;
     },
   },
+  guardDuty: {
+    name: "Guard Duty Template",
+    fields: [],
+    generate: () => "",
+    customUI: true,
+  },
 };
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+const DAY_NAMES = [
+  "SUNDAY",
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+];
+
+const GUARD_DUTY_STORAGE_KEY = "fmw2:guardDuty";
 
 const STORAGE_KEY = "fmw2";
 const STORAGE_TYPE_KEY = `${STORAGE_KEY}:selectedType`;
+
+function GuardDutyUI({ onGenerate }: { onGenerate: (result: string) => void }) {
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [entries, setEntries] = useState<GuardDutyEntry[]>([]);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  // Load saved state
+  useEffect(() => {
+    const saved = localStorage.getItem(GUARD_DUTY_STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setSelectedMonth(parsed.selectedMonth ?? now.getMonth());
+        setSelectedYear(parsed.selectedYear ?? now.getFullYear());
+        setEntries(
+          (parsed.entries ?? []).map((e: any) => ({
+            ...e,
+            date: new Date(e.date),
+          })),
+        );
+      } catch {
+        console.warn("Failed to parse guard duty saved data");
+      }
+    }
+  }, []);
+
+  // Save state on change
+  useEffect(() => {
+    localStorage.setItem(
+      GUARD_DUTY_STORAGE_KEY,
+      JSON.stringify({ selectedMonth, selectedYear, entries }),
+    );
+  }, [selectedMonth, selectedYear, entries]);
+
+  const addDate = (date: Date) => {
+    // Check if date already exists
+    const exists = entries.find(
+      (e) => e.date.toDateString() === date.toDateString(),
+    );
+    if (exists) {
+      toast.error("This date is already added.");
+      return;
+    }
+    setEntries((prev) =>
+      [...prev, { date, icTypes: [] as ICType[], numGuards: 3 }].sort(
+        (a, b) => a.date.getTime() - b.date.getTime(),
+      ),
+    );
+  };
+
+  const removeDate = (index: number) => {
+    setEntries((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateEntry = (index: number, field: "numGuards", value: number) => {
+    setEntries((prev) =>
+      prev.map((e, i) => (i === index ? { ...e, [field]: value } : e)),
+    );
+  };
+
+  const toggleIC = (index: number, ic: ICType) => {
+    setEntries((prev) =>
+      prev.map((e, i) => {
+        if (i !== index) return e;
+        const has = e.icTypes.includes(ic);
+        const newTypes = has
+          ? e.icTypes.filter((t) => t !== ic)
+          : [...e.icTypes, ic].sort(
+              (a, b) =>
+                ["2IC", "3IC", "4IC"].indexOf(a) -
+                ["2IC", "3IC", "4IC"].indexOf(b),
+            );
+        return { ...e, icTypes: newTypes };
+      }),
+    );
+  };
+
+  const handleGenerate = () => {
+    if (entries.length === 0) {
+      toast.error("Please add at least one date.");
+      return;
+    }
+
+    const monthName = MONTHS[selectedMonth].toUpperCase();
+    let result = `GUARD DUTY ${monthName} ${selectedYear}\n`;
+
+    entries.forEach((entry, idx) => {
+      const dayNum = entry.date.getDate();
+      const monthNum = entry.date.getMonth() + 1;
+      const dayName = DAY_NAMES[entry.date.getDay()];
+
+      result += `${dayNum}/${monthNum} (${dayName})\n`;
+
+      // Output each IC type with NUMBER field
+      for (const ic of entry.icTypes) {
+        result += `${ic}: \nNUMBER: \n \n`;
+      }
+
+      for (let g = 0; g < entry.numGuards; g++) {
+        result += `G: \nNUMBER: \n \n`;
+      }
+
+      if (idx < entries.length - 1) {
+        result += `==========\n`;
+      }
+    });
+
+    onGenerate(result.trimEnd());
+    toast.success("Guard Duty Template Generated!");
+
+    // Log
+    fetch("/api/logs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        template: "guardDuty",
+        fields: {
+          month: MONTHS[selectedMonth],
+          year: selectedYear,
+          entries: entries.length,
+        },
+        template_type: "Guard Duty Template",
+        user_agent: navigator.userAgent,
+      }),
+    }).catch(() => {});
+  };
+
+  // Generate calendar month start/end for the selected month
+  const calendarMonth = new Date(selectedYear, selectedMonth, 1);
+
+  return (
+    <div className="space-y-4">
+      {/* Month and Year Selection */}
+      <div className="flex gap-4">
+        <div className="flex-1">
+          <Label>Month</Label>
+          <Select
+            value={String(selectedMonth)}
+            onValueChange={(val) => setSelectedMonth(Number(val))}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MONTHS.map((month, idx) => (
+                <SelectItem key={idx} value={String(idx)}>
+                  {month}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex-1">
+          <Label>Year</Label>
+          <Select
+            value={String(selectedYear)}
+            onValueChange={(val) => setSelectedYear(Number(val))}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[now.getFullYear(), now.getFullYear() + 1].map((yr) => (
+                <SelectItem key={yr} value={String(yr)}>
+                  {yr}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Date Picker (multi-date via calendar) */}
+      <div>
+        <Label>Select Dates</Label>
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full justify-start text-left font-normal"
+            >
+              {entries.length > 0
+                ? `${entries.length} date(s) selected`
+                : "Click to add dates"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+              mode="single"
+              month={calendarMonth}
+              onMonthChange={(m) => {
+                setSelectedMonth(m.getMonth());
+                setSelectedYear(m.getFullYear());
+              }}
+              selected={undefined}
+              onSelect={(date) => {
+                if (date) {
+                  addDate(date);
+                  // Don't close — allow multiple selections
+                }
+              }}
+              modifiers={{
+                selected: entries.map((e) => e.date),
+              }}
+              modifiersClassNames={{
+                selected: "bg-primary text-primary-foreground",
+              }}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Per-date configuration */}
+      {entries.length > 0 && (
+        <div className="space-y-3">
+          <Label>Configure Each Date</Label>
+          {entries.map((entry, idx) => (
+            <div
+              key={entry.date.toISOString()}
+              className="border rounded-lg p-3 space-y-2"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-medium">
+                  {format(entry.date, "d MMM yyyy")} (
+                  {DAY_NAMES[entry.date.getDay()]})
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeDate(idx)}
+                  className="text-destructive hover:text-destructive"
+                >
+                  ✕
+                </Button>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <Label className="text-xs">IC Types (optional)</Label>
+                  <div className="flex gap-3 mt-1">
+                    {(["2IC", "3IC", "4IC"] as ICType[]).map((ic) => (
+                      <div key={ic} className="flex items-center space-x-1">
+                        <Checkbox
+                          id={`${entry.date.toISOString()}-${ic}`}
+                          checked={entry.icTypes.includes(ic)}
+                          onCheckedChange={() => toggleIC(idx, ic)}
+                        />
+                        <Label
+                          htmlFor={`${entry.date.toISOString()}-${ic}`}
+                          className="text-xs cursor-pointer"
+                        >
+                          {ic}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <Label className="text-xs">Number of Guards</Label>
+                  <Select
+                    value={String(entry.numGuards)}
+                    onValueChange={(val) =>
+                      updateEntry(idx, "numGuards", Number(val))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Button onClick={handleGenerate} className="w-full">
+        Generate Template
+      </Button>
+    </div>
+  );
+}
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -670,7 +1001,7 @@ export default function Home() {
     if (saved) {
       try {
         const savedParsed = JSON.parse(saved);
-        setFieldValues({ ...initialValues, ...savedParsed }); // 👈 merge default first, then saved
+        setFieldValues({ ...initialValues, ...savedParsed });
       } catch {
         console.warn("Failed to parse saved field values");
         setFieldValues(initialValues);
@@ -761,7 +1092,6 @@ export default function Home() {
         }
       }
 
-      // 4. Generate result
       console.log(relevantFields);
       const result = template.generate(relevantFields);
       setGenerated(result);
@@ -831,107 +1161,121 @@ export default function Home() {
         </Select>
       </div>
 
-      <div className="space-y-4">
-        {template.fields
-          .filter((field) => {
-            if (!field.showIf) return true;
-            return fieldValues[field.showIf.key] === field.showIf.equals;
-          })
-          .map((field) => (
-            <div key={field.key}>
-              <Label htmlFor={field.key}>{field.label}</Label>
-              {field.type === "input" && (
-                <Input
-                  id={field.key}
-                  value={fieldValues[field.key] || ""}
-                  onChange={(e) => handleChange(field.key, e.target.value)}
-                  placeholder={field.placeholder}
-                />
-              )}
-              {field.type === "textarea" && (
-                <Textarea
-                  id={field.key}
-                  value={fieldValues[field.key] || ""}
-                  onChange={(e) => handleChange(field.key, e.target.value)}
-                  placeholder={field.placeholder}
-                  className="min-h-[100px]"
-                />
-              )}
-              {field.type === "select" && field.options && (
-                <Select
-                  value={fieldValues[field.key] || ""}
-                  onValueChange={(value) => handleChange(field.key, value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={field.placeholder || "Select an option"}
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {field.options.map((opt) => (
-                      <SelectItem key={opt} value={opt}>
-                        {opt}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {field.type === "date" && (
-                <Popover
-                  open={openPopoverKey === field.key}
-                  onOpenChange={(open) =>
-                    setOpenPopoverKey(open ? field.key : null)
-                  }
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={`w-full justify-start text-left font-normal ${
-                        fieldValues[field.key] ? "" : "text-muted-foreground"
-                      }`}
-                    >
-                      {fieldValues[field.key]
-                        ? format(new Date(fieldValues[field.key]), "yyyy-MM-dd")
-                        : field.placeholder || "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={
-                        fieldValues[field.key]
-                          ? new Date(fieldValues[field.key])
-                          : undefined
-                      }
-                      onSelect={(date) => {
-                        if (date) {
-                          handleChange(field.key, date.toISOString());
-                          setOpenPopoverKey(null); // 👈 Close the popover after selecting
-                        }
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              )}
-              {field.type === "checkbox" && (
-                <div className="flex items-center space-x-2 mt-1">
-                  <Checkbox
+      {/* Guard Duty has its own custom UI */}
+      {template.customUI && selectedType === "guardDuty" ? (
+        <>
+          <GuardDutyUI onGenerate={(result) => setGenerated(result)} />
+        </>
+      ) : (
+        <div className="space-y-4">
+          {template.fields
+            .filter((field) => {
+              if (!field.showIf) return true;
+              return fieldValues[field.showIf.key] === field.showIf.equals;
+            })
+            .map((field) => (
+              <div key={field.key}>
+                <Label htmlFor={field.key}>{field.label}</Label>
+                {field.type === "input" && (
+                  <Input
                     id={field.key}
-                    checked={fieldValues[field.key] == "true"}
-                    onCheckedChange={(checked) =>
-                      handleChange(field.key, checked ? "true" : "false")
-                    }
+                    value={fieldValues[field.key] || ""}
+                    onChange={(e) => handleChange(field.key, e.target.value)}
+                    placeholder={field.placeholder}
                   />
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+                {field.type === "textarea" && (
+                  <Textarea
+                    id={field.key}
+                    value={fieldValues[field.key] || ""}
+                    onChange={(e) => handleChange(field.key, e.target.value)}
+                    placeholder={field.placeholder}
+                    className="min-h-[100px]"
+                  />
+                )}
+                {field.type === "select" && field.options && (
+                  <Select
+                    value={fieldValues[field.key] || ""}
+                    onValueChange={(value) => handleChange(field.key, value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={field.placeholder || "Select an option"}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {field.options.map((opt) => (
+                        <SelectItem key={opt} value={opt}>
+                          {opt}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {field.type === "date" && (
+                  <Popover
+                    open={openPopoverKey === field.key}
+                    onOpenChange={(open) =>
+                      setOpenPopoverKey(open ? field.key : null)
+                    }
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={`w-full justify-start text-left font-normal ${
+                          fieldValues[field.key] ? "" : "text-muted-foreground"
+                        }`}
+                      >
+                        {fieldValues[field.key]
+                          ? format(
+                              new Date(fieldValues[field.key]),
+                              "yyyy-MM-dd",
+                            )
+                          : field.placeholder || "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={
+                          fieldValues[field.key]
+                            ? new Date(fieldValues[field.key])
+                            : undefined
+                        }
+                        onSelect={(date) => {
+                          if (date) {
+                            handleChange(field.key, date.toISOString());
+                            setOpenPopoverKey(null);
+                          }
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
+                {field.type === "checkbox" && (
+                  <div className="flex items-center space-x-2 mt-1">
+                    <Checkbox
+                      id={field.key}
+                      checked={fieldValues[field.key] == "true"}
+                      onCheckedChange={(checked) =>
+                        handleChange(field.key, checked ? "true" : "false")
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
 
-        <Button onClick={handleGenerate} className="w-full" disabled={loading}>
-          {loading ? "Generating..." : "Generate Template"}
-        </Button>
-      </div>
+          <Button
+            onClick={handleGenerate}
+            className="w-full"
+            disabled={loading}
+          >
+            {loading ? "Generating..." : "Generate Template"}
+          </Button>
+        </div>
+      )}
 
       {generated && (
         <div className="space-y-2">
@@ -950,15 +1294,24 @@ export default function Home() {
             <Button
               variant="destructive"
               onClick={() => {
-                localStorage.removeItem(STORAGE_KEY);
-                const newDefaults: Record<string, string> = {};
-                templates[selectedType].fields.forEach((field) => {
-                  if (field.default !== undefined) {
-                    newDefaults[field.key] = field.default;
-                  }
-                });
-                setFieldValues(newDefaults);
-                toast.info("Reset to default values");
+                if (selectedType === "guardDuty") {
+                  localStorage.removeItem(GUARD_DUTY_STORAGE_KEY);
+                  setGenerated("");
+                  toast.info("Guard duty data cleared");
+                  // Force re-render by toggling type
+                  setSelectedType("");
+                  setTimeout(() => setSelectedType("guardDuty"), 0);
+                } else {
+                  localStorage.removeItem(STORAGE_KEY);
+                  const newDefaults: Record<string, string> = {};
+                  templates[selectedType].fields.forEach((field) => {
+                    if (field.default !== undefined) {
+                      newDefaults[field.key] = field.default;
+                    }
+                  });
+                  setFieldValues(newDefaults);
+                  toast.info("Reset to default values");
+                }
               }}
             >
               Reset to Default
