@@ -50,6 +50,608 @@ type GuardDutyEntry = {
   numGuards: number;
 };
 
+function monthNameToIndex(name: string) {
+  const m = name.trim().toLowerCase();
+  const map: Record<string, number> = {
+    january: 0,
+    february: 1,
+    march: 2,
+    april: 3,
+    may: 4,
+    june: 5,
+    july: 6,
+    august: 7,
+    september: 8,
+    october: 9,
+    november: 10,
+    december: 11,
+  };
+  return map[m];
+}
+
+/**
+ * Keeps only guard duty blocks whose date is >= "today" (inclusive).
+ * Assumes format:
+ *   GUARD DUTY FEBRUARY 2026
+ *   7/2 (SATURDAY)
+ *   ...
+ *   ==============
+ *   9/2 (MONDAY)
+ *   ...
+ *
+ * Works even if date line has extra tokens like: "16/2 (PM) (MONDAY)".
+ */
+export function pruneGuardDutyList(raw: string, today = new Date()) {
+  const text = (raw ?? "").replace(/\r\n/g, "\n").trim();
+  if (!text) return "";
+
+  // Header: "GUARD DUTY FEBRUARY 2026"
+  const headerMatch = text.match(/^GUARD DUTY\s+([A-Z]+)\s+(\d{4})\s*$/im);
+
+  const headerLine = headerMatch?.[0]?.trim() ?? "";
+  const headerMonthName = headerMatch?.[1] ?? "";
+  const headerYearStr = headerMatch?.[2] ?? "";
+
+  const headerYear = headerYearStr
+    ? Number(headerYearStr)
+    : new Date().getFullYear();
+  const headerMonthIndex = headerMonthName
+    ? monthNameToIndex(headerMonthName)
+    : undefined;
+
+  // Remove header from body (keep body for block parsing)
+  const body = headerLine ? text.replace(headerLine, "").trimStart() : text;
+
+  // Find date-line indices
+  const dateLineRegex = /^\s*(\d{1,2})\/(\d{1,2})\b.*$/gm;
+  const matches = Array.from(body.matchAll(dateLineRegex));
+
+  if (matches.length === 0) {
+    // If it doesn't match expected structure, just return as-is
+    return text;
+  }
+
+  const today0 = startOfDay(today);
+
+  // Slice into blocks by date-line positions
+  const blocks = matches.map((m, i) => {
+    const start = m.index ?? 0;
+    const end =
+      i + 1 < matches.length
+        ? (matches[i + 1].index ?? body.length)
+        : body.length;
+    const blockText = body.slice(start, end);
+
+    const day = Number(m[1]);
+    const monthNum = Number(m[2]); // 1..12 from the line
+    const monthIndexFromLine = monthNum - 1;
+
+    // Prefer month from line; fallback to header month if needed
+    const monthIndex =
+      Number.isFinite(monthIndexFromLine) &&
+      monthIndexFromLine >= 0 &&
+      monthIndexFromLine <= 11
+        ? monthIndexFromLine
+        : (headerMonthIndex ?? 0);
+
+    const date = new Date(headerYear, monthIndex, day);
+    date.setHours(0, 0, 0, 0);
+
+    return { date, text: blockText };
+  });
+
+  const kept = blocks.filter((b) => b.date.getTime() >= today0.getTime());
+
+  // Strip any trailing separator(s) at the end of each kept block,
+  // then join with a single standard separator
+  const cleaned = kept.map((b) =>
+    b.text
+      .replace(/\s+$/g, "")
+      .replace(/(\n\s*=+\s*)+\s*$/g, "")
+      .trimEnd(),
+  );
+
+  if (cleaned.length === 0) {
+    // Nothing upcoming: still show header (or blank)
+    return headerLine ? headerLine : "";
+  }
+
+  const separator = "\n\n==============\n\n";
+  const rebuiltBody = cleaned.join(separator);
+
+  return headerLine ? `${headerLine}\n\n${rebuiltBody}` : rebuiltBody;
+}
+
+type RecoveryDuty = {
+  cmdr: string;
+  ic2: string;
+  crew: string; // multiline
+};
+
+type VehicleRecoveryDuty = {
+  cmdr: string;
+  driver: string;
+  mechanic: string;
+};
+
+type RegimentalEntry = {
+  date: Date;
+  dfo: string;
+  udo: string;
+  dutyClerk: string;
+  rcv: RecoveryDuty;
+  arv: VehicleRecoveryDuty;
+  hrv: VehicleRecoveryDuty;
+};
+
+const ROUTINE_STORAGE_KEY = "fmw2:routineOrder";
+
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function addDaysLocal(d: Date, days: number) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + days);
+  return x;
+}
+
+// Mon–Thu: 2 days (today+tomorrow), Fri: 4 days (Fri–Mon), Sat: 3 (Sat–Mon), Sun: 2 (Sun–Mon)
+function defaultSpanDaysForToday(today: Date) {
+  const dow = startOfDay(today).getDay(); // 0 Sun ... 5 Fri ... 6 Sat
+  if (dow === 5) return 4;
+  if (dow === 6) return 3;
+  return 2;
+}
+
+function formatDdMmYy(d: Date) {
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+}
+
+function formatRegimental(entries: RegimentalEntry[]) {
+  return entries
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .map((e) => {
+      const dayName = DAY_NAMES[e.date.getDay()];
+      const dateStr = formatDdMmYy(e.date);
+
+      const crewLines = (e.rcv.crew || "")
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      return `-<${dayName} ${dateStr}>-
+DFO- ${e.dfo || "[]"}
+UDO- ${e.udo || "[]"}
+DUTY CLERK- ${e.dutyClerk || "[]"}
+
+RCV Recovery Duty
+CMDR- ${e.rcv.cmdr || "[]"}
+2IC- ${e.rcv.ic2 || "[]"}
+CREW- ${crewLines.length ? crewLines.map((c) => `\n- ${c}`).join("") : "[]"}
+
+ARV Recover duty
+CMDR- ${e.arv.cmdr || "[]"}
+DRIVER- ${e.arv.driver || "[]"}
+MECHANIC- ${e.arv.mechanic || "[]"}
+
+HRV Recover duty
+CMDR- ${e.hrv.cmdr || "[]"}
+DRIVER- ${e.hrv.driver || "[]"}
+MECHANIC- ${e.hrv.mechanic || "[]"}
+
+-<${dayName} ${dateStr}>-`;
+    })
+    .join("\n\n");
+}
+
+function buildRoutineOrderText(args: {
+  safetyMessage: string;
+  eventUpdate: string;
+  regimentalDutiesText: string;
+  guardDutyText: string;
+  today: Date;
+}) {
+  const {
+    safetyMessage,
+    eventUpdate,
+    regimentalDutiesText,
+    guardDutyText,
+    today,
+  } = args;
+
+  const todayDateString = today.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  const dayName = DAY_NAMES[today.getDay()];
+
+  return `**11FMD DRO ${dayName} ${todayDateString}**
+**⚠️—CO SAFETY MESSAGE—⚠️**
+1. Zero Fatal Injuries
+2. Zero Major Injuries
+3. Zero Heat Stroke
+4. Zero Negligent Discharge of Live Ammunition
+5. Zero Severe Vehicle Incidents
+6. Zero Severe Workplace Incidents
+**⚠️—CO SAFETY MESSAGE—⚠️**
+
+**—SAFETY MESSAGE OF THE DAY—**
+${(safetyMessage || "").toUpperCase()}
+**—SAFETY MESSAGE OF THE DAY—**
+
+*—UPCOMING EVENTS/NOTICE—*${eventUpdate ? `\n${eventUpdate}\n` : "\n"}*—UPCOMING EVENTS/NOTICE—*
+
+**🪖—REGIMENTAL DUTIES—🪖**${regimentalDutiesText ? `\n${regimentalDutiesText}\n` : "\n"}**🪖—REGIMENTAL DUTIES—🪖**
+
+**🧙🏻‍♂️—GUARD DUTY—🧙🏻‍♂️**${guardDutyText ? `\n${guardDutyText}\n` : "\n"}**🧙🏻‍♂️—GUARD DUTY—🧙🏻‍♂️**
+`;
+}
+
+function RoutineOrderUI({
+  onGenerate,
+}: {
+  onGenerate: (result: string) => void;
+}) {
+  const todayRef = useRef<Date>(startOfDay(new Date()));
+  const today = todayRef.current;
+
+  const [hydrated, setHydrated] = useState(false);
+
+  const [safetyMessage, setSafetyMessage] = useState("");
+  const [eventUpdate, setEventUpdate] = useState("");
+  const [guardDutyText, setGuardDutyText] = useState("");
+
+  const [spanDays, setSpanDays] = useState(() =>
+    defaultSpanDaysForToday(today),
+  );
+  const [entries, setEntries] = useState<RegimentalEntry[]>([]);
+
+  // init entries (today -> today+spanDays-1)
+  const ensureEntries = (baseDate: Date, days: number) => {
+    const base0 = startOfDay(baseDate);
+    const wanted = Array.from({ length: days }, (_, i) =>
+      startOfDay(addDaysLocal(base0, i)),
+    );
+
+    setEntries((prev) => {
+      // keep existing values by matching date
+      const byKey = new Map(
+        prev.map((e) => [startOfDay(e.date).toDateString(), e]),
+      );
+
+      return wanted.map((d) => {
+        const key = d.toDateString();
+        const existing = byKey.get(key);
+        if (existing) return { ...existing, date: d };
+
+        return {
+          date: d,
+          dfo: "",
+          udo: "",
+          dutyClerk: "",
+          rcv: { cmdr: "", ic2: "", crew: "" },
+          arv: { cmdr: "", driver: "", mechanic: "" },
+          hrv: { cmdr: "", driver: "", mechanic: "" },
+        };
+      });
+    });
+  };
+
+  // load saved
+  useEffect(() => {
+    const saved = localStorage.getItem(ROUTINE_STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+
+        setSafetyMessage(parsed.safetyMessage ?? "");
+        setEventUpdate(parsed.eventUpdate ?? "");
+        setGuardDutyText(parsed.guardDutyText ?? "");
+        setSpanDays(parsed.spanDays ?? defaultSpanDaysForToday(today));
+
+        const parsedEntries = (parsed.entries ?? []).map((e: any) => ({
+          ...e,
+          date: new Date(e.date),
+        }));
+        setEntries(parsedEntries);
+        setHydrated(true);
+        return;
+      } catch {
+        // fallback to default
+        // ensureEntries(today, defaultSpanDaysForToday(today));
+      }
+    } else {
+      // ensureEntries(today, defaultSpanDaysForToday(today));
+    }
+    const def = defaultSpanDaysForToday(today);
+    setSpanDays(def);
+    ensureEntries(today, def);
+    setHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // keep entries aligned when spanDays changes (AFTER hydration)
+  useEffect(() => {
+    if (!hydrated) return;
+    ensureEntries(today, spanDays);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, spanDays]);
+
+  // save (AFTER hydration)
+  useEffect(() => {
+    if (!hydrated) return;
+
+    localStorage.setItem(
+      ROUTINE_STORAGE_KEY,
+      JSON.stringify({
+        safetyMessage,
+        eventUpdate,
+        guardDutyText,
+        spanDays,
+        entries,
+      }),
+    );
+  }, [hydrated, safetyMessage, eventUpdate, guardDutyText, spanDays, entries]);
+
+  const updateEntry = (idx: number, patch: Partial<RegimentalEntry>) => {
+    setEntries((prev) =>
+      prev.map((e, i) => (i === idx ? { ...e, ...patch } : e)),
+    );
+  };
+
+  const handleGenerate = () => {
+    const regimentalDutiesText = formatRegimental(entries);
+
+    const prunedGuardDuty = pruneGuardDutyList(guardDutyText, today);
+
+    const result = buildRoutineOrderText({
+      safetyMessage,
+      eventUpdate,
+      regimentalDutiesText,
+      guardDutyText: prunedGuardDuty,
+      today,
+    });
+
+    onGenerate(result.trimEnd());
+    toast.success("Routine Order Generated!");
+  };
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <Label>Safety Message</Label>
+        <Input
+          value={safetyMessage}
+          onChange={(e) => setSafetyMessage(e.target.value)}
+          placeholder="Input Safety Message"
+        />
+      </div>
+
+      <div>
+        <Label>Upcoming Events / Notice</Label>
+        <Textarea
+          value={eventUpdate}
+          onChange={(e) => setEventUpdate(e.target.value)}
+          placeholder="e.g. upcoming launch discussion"
+          className="min-h-[100px]"
+        />
+      </div>
+
+      <div className="flex items-end gap-3">
+        <div className="flex-1">
+          <Label>Send which days?</Label>
+          <Select
+            value={String(spanDays)}
+            onValueChange={(v) => setSpanDays(Number(v))}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">Today only</SelectItem>
+              <SelectItem value="2">Today + Tomorrow (default)</SelectItem>
+              <SelectItem value="3">3 days</SelectItem>
+              <SelectItem value="4">4 days (Fri–Mon)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSpanDays(defaultSpanDaysForToday(today));
+            toast.info("Reset to default span for today");
+          }}
+        >
+          Use Default Rule
+        </Button>
+      </div>
+
+      <div className="space-y-3">
+        <Label>Regimental Duties</Label>
+
+        {entries.map((entry, idx) => (
+          <div
+            key={entry.date.toISOString()}
+            className="border rounded-lg p-3 space-y-3"
+          >
+            <div className="font-medium">
+              {format(entry.date, "d MMM yyyy")} (
+              {DAY_NAMES[entry.date.getDay()]})
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">DFO</Label>
+                <Input
+                  value={entry.dfo}
+                  onChange={(e) => updateEntry(idx, { dfo: e.target.value })}
+                  placeholder="[12] ME4 ONG SOON KWEE"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">UDO</Label>
+                <Input
+                  value={entry.udo}
+                  onChange={(e) => updateEntry(idx, { udo: e.target.value })}
+                  placeholder="[11] 2LT XANDER LIEW YI"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Duty Clerk</Label>
+                <Input
+                  value={entry.dutyClerk}
+                  onChange={(e) =>
+                    updateEntry(idx, { dutyClerk: e.target.value })
+                  }
+                  placeholder="[S4] 3SG YONG YONG LIANG"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">RCV CMDR</Label>
+                <Input
+                  value={entry.rcv.cmdr}
+                  onChange={(e) =>
+                    updateEntry(idx, {
+                      rcv: { ...entry.rcv, cmdr: e.target.value },
+                    })
+                  }
+                  placeholder="[]"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">RCV 2IC</Label>
+                <Input
+                  value={entry.rcv.ic2}
+                  onChange={(e) =>
+                    updateEntry(idx, {
+                      rcv: { ...entry.rcv, ic2: e.target.value },
+                    })
+                  }
+                  placeholder="[]"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">RCV CREW</Label>
+                <Input
+                  value={entry.rcv.crew}
+                  onChange={(e) =>
+                    updateEntry(idx, {
+                      rcv: { ...entry.rcv, crew: e.target.value },
+                    })
+                  }
+                  placeholder="[]"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">ARV CMDR</Label>
+                <Input
+                  value={entry.arv.cmdr}
+                  onChange={(e) =>
+                    updateEntry(idx, {
+                      arv: { ...entry.arv, cmdr: e.target.value },
+                    })
+                  }
+                  placeholder="[]"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">ARV DRIVER</Label>
+                <Input
+                  value={entry.arv.driver}
+                  onChange={(e) =>
+                    updateEntry(idx, {
+                      arv: { ...entry.arv, driver: e.target.value },
+                    })
+                  }
+                  placeholder="[]"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">ARV MECHANIC</Label>
+                <Input
+                  value={entry.arv.mechanic}
+                  onChange={(e) =>
+                    updateEntry(idx, {
+                      arv: { ...entry.arv, mechanic: e.target.value },
+                    })
+                  }
+                  placeholder="[]"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs">HRV CMDR</Label>
+                <Input
+                  value={entry.hrv.cmdr}
+                  onChange={(e) =>
+                    updateEntry(idx, {
+                      hrv: { ...entry.hrv, cmdr: e.target.value },
+                    })
+                  }
+                  placeholder="[]"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">HRV DRIVER</Label>
+                <Input
+                  value={entry.hrv.driver}
+                  onChange={(e) =>
+                    updateEntry(idx, {
+                      hrv: { ...entry.hrv, driver: e.target.value },
+                    })
+                  }
+                  placeholder="[]"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">HRV MECHANIC</Label>
+                <Input
+                  value={entry.hrv.mechanic}
+                  onChange={(e) =>
+                    updateEntry(idx, {
+                      hrv: { ...entry.hrv, mechanic: e.target.value },
+                    })
+                  }
+                  placeholder="[]"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <Label>Guard Duty (paste your generated list)</Label>
+        <Textarea
+          value={guardDutyText}
+          onChange={(e) => setGuardDutyText(e.target.value)}
+          placeholder="Paste guard duty list here"
+          className="min-h-[140px] max-h-[250px]"
+        />
+      </div>
+
+      <Button onClick={handleGenerate} className="w-full">
+        Generate Routine Order
+      </Button>
+    </div>
+  );
+}
+
 const templates: Record<string, TemplateDefinition> = {
   offAwarded: {
     name: "Off Awarded",
@@ -94,7 +696,7 @@ const templates: Record<string, TemplateDefinition> = {
         label: "Recommended By",
         type: "input",
         placeholder: "Rank/Name of AMTT/MTT",
-        default: "ME3 Hoon",
+        default: "ME3 Alex",
       },
     ],
     generate: ({
@@ -176,7 +778,7 @@ const templates: Record<string, TemplateDefinition> = {
         label: "Recommended By",
         type: "input",
         placeholder: "Rank/Name of AMTT/MTT",
-        default: "ME3 Hoon",
+        default: "ME3 Alex",
       },
     ],
     generate: ({
@@ -296,7 +898,7 @@ const templates: Record<string, TemplateDefinition> = {
         label: "Recommended By",
         type: "input",
         placeholder: "Rank/Name of AMTT/MTT",
-        default: "ME3 Hoon",
+        default: "ME3 Alex",
       },
     ],
     generate: ({
@@ -620,6 +1222,12 @@ BLK420: ${blk420}`;
   },
   guardDuty: {
     name: "Guard Duty Template",
+    fields: [],
+    generate: () => "",
+    customUI: true,
+  },
+  routineOrder: {
+    name: "Routine Order Template",
     fields: [],
     generate: () => "",
     customUI: true,
@@ -1163,10 +1771,12 @@ export default function Home() {
       </div>
 
       {/* Guard Duty has its own custom UI */}
-      {template.customUI && selectedType === "guardDuty" ? (
-        <>
+      {template.customUI ? (
+        selectedType === "guardDuty" ? (
           <GuardDutyUI onGenerate={(result) => setGenerated(result)} />
-        </>
+        ) : selectedType === "routineOrder" ? (
+          <RoutineOrderUI onGenerate={(result) => setGenerated(result)} />
+        ) : null
       ) : (
         <div className="space-y-4">
           {template.fields
@@ -1191,7 +1801,7 @@ export default function Home() {
                     value={fieldValues[field.key] || ""}
                     onChange={(e) => handleChange(field.key, e.target.value)}
                     placeholder={field.placeholder}
-                    className="min-h-[100px]"
+                    className="min-h-[100px] max-h-[200px]"
                   />
                 )}
                 {field.type === "select" && field.options && (
@@ -1285,7 +1895,7 @@ export default function Home() {
             ref={textareaRef}
             value={generated}
             readOnly
-            className="min-h-[120px]"
+            className="min-h-[120px] max-h-[250px]"
             onClick={(e) => (e.target as HTMLTextAreaElement).select()}
           />
           <div className="flex justify-between">
@@ -1302,6 +1912,13 @@ export default function Home() {
                   // Force re-render by toggling type
                   setSelectedType("");
                   setTimeout(() => setSelectedType("guardDuty"), 0);
+                } else if (selectedType === "routineOrder") {
+                  localStorage.removeItem(ROUTINE_STORAGE_KEY);
+                  setGenerated("");
+                  toast.info("Routine order cleared");
+                  setSelectedType("");
+                  setTimeout(() => setSelectedType("routineOrder"), 0);
+                  return;
                 } else {
                   localStorage.removeItem(STORAGE_KEY);
                   const newDefaults: Record<string, string> = {};
