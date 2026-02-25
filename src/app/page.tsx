@@ -81,7 +81,7 @@ function monthNameToIndex(name: string) {
  *
  * Works even if date line has extra tokens like: "16/2 (PM) (MONDAY)".
  */
-export function pruneGuardDutyList(raw: string, today = new Date()) {
+function pruneGuardDutyList(raw: string, today = new Date()) {
   const text = (raw ?? "").replace(/\r\n/g, "\n").trim();
   if (!text) return "";
 
