@@ -59,12 +59,14 @@ function serializeRoutine(state: {
 }
 
 function deserializeRoutine(raw: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parsed = JSON.parse(raw) as any;
   return {
     safetyMessage: parsed.safetyMessage ?? "",
     eventUpdate: parsed.eventUpdate ?? "",
     guardDutyText: parsed.guardDutyText ?? "",
     spanDays: parsed.spanDays ?? defaultSpanDaysForToday(new Date()),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     entries: (parsed.entries ?? []).map((e: any) => ({
       ...e,
       date: new Date(e.date),

@@ -42,10 +42,12 @@ function serializeGuardDuty(state: {
 }
 
 function deserializeGuardDuty(raw: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parsed = JSON.parse(raw) as any;
   return {
     selectedMonth: parsed.selectedMonth ?? new Date().getMonth(),
     selectedYear: parsed.selectedYear ?? new Date().getFullYear(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     entries: (parsed.entries ?? []).map((e: any) => ({
       ...e,
       date: new Date(e.date),
