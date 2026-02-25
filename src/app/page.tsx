@@ -356,6 +356,7 @@ function RoutineOrderUI({
         setGuardDutyText(parsed.guardDutyText ?? "");
         setSpanDays(parsed.spanDays ?? defaultSpanDaysForToday(today));
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const parsedEntries = (parsed.entries ?? []).map((e: any) => ({
           ...e,
           date: new Date(e.date),
