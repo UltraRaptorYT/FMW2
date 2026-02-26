@@ -279,15 +279,14 @@ export default function RoutineOrderUI({
               </div>
               <div>
                 <Label className="text-xs">RCV CREW (one per line)</Label>
-                <Textarea
+                <Input
                   value={entry.rcv.crew}
                   onChange={(e) =>
                     updateEntry(idx, {
                       rcv: { ...entry.rcv, crew: e.target.value },
                     })
                   }
-                  placeholder={`ME1 ...\nCPL ...\nPTE ...`}
-                  className="min-h-[80px]"
+                  placeholder="[]"
                 />
               </div>
             </div>
