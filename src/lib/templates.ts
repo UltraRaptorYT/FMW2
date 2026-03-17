@@ -302,6 +302,173 @@ At around ${endTimeIncident}hrs, serviceman was given ${dayStatus} day ${sickSta
 
 12. Reporting Person: ${recommendedBy}`,
   },
+
+  panzerBOS: {
+    name: "Panzer Fault Reporting Template",
+    fields: [
+      {
+        key: "mid",
+        label: "Vehicle MID",
+        type: "input",
+        placeholder: "MID Number",
+        pattern: "^\\d{5}$",
+      },
+      {
+        key: "vehicleLocation",
+        label: "Vehicle Location",
+        type: "input",
+        placeholder: "Vehicle Location",
+        default: "Haide Camp",
+      },
+      {
+        key: "date",
+        label: "Date",
+        type: "date",
+      },
+      {
+        key: "time",
+        label: "Time",
+        type: "input",
+        placeholder: "e.g. 1320",
+        pattern: "^([01][0-9]|2[0-3])[0-5][0-9]$",
+        errorMessage: "Time must be in 24hr format (e.g. 1320)",
+      },
+      {
+        key: "odo",
+        label: "Odometer",
+        type: "input",
+        placeholder: "Odo",
+        pattern: "^\\d+(\\.\\d+)?$",
+      },
+      {
+        key: "eh",
+        label: "Engine Hour",
+        type: "input",
+        placeholder: "Engine Hour",
+        pattern: "^\\d+$",
+      },
+      {
+        key: "fuelPercent",
+        label: "Fuel Percent",
+        type: "input",
+        placeholder: "Fuel Percent",
+        pattern: "^\\d+$",
+        showIf: { key: "vehiclePresent", equals: "true" },
+      },
+      {
+        key: "starterPercent",
+        label: "Starter Battery Percent",
+        type: "input",
+        placeholder: "Starter Battery Percent",
+        pattern: "^\\d+$",
+      },
+      {
+        key: "auxPercent",
+        label: "Auxiliary Battery Percent",
+        type: "input",
+        placeholder: "Auxiliary Battery Percent",
+        pattern: "^\\d+$",
+      },
+      {
+        key: "faults",
+        label: "Faults",
+        type: "textarea",
+        placeholder: "One fault per line",
+        required: false,
+      },
+      {
+        key: "observation",
+        label: "Observation",
+        type: "textarea",
+        placeholder: "One observation per line",
+        required: false,
+      },
+      {
+        key: "actions",
+        label: "Actions",
+        type: "textarea",
+        placeholder: "One action per line",
+        required: false,
+      },
+      {
+        key: "remarks",
+        label: "Remarks",
+        type: "textarea",
+        placeholder: "One remark per line",
+        required: false,
+      },
+    ],
+    generate: ({
+      mid,
+      vehicleLocation,
+      date,
+      time,
+      odo,
+      eh,
+      fuelPercent,
+      starterPercent,
+      auxPercent,
+      faults,
+      observation,
+      actions,
+      remarks,
+    }) => {
+      return `*Fault Reporting*
+MID: ${mid}
+Location: ${vehicleLocation}
+Date: ${format(new Date(date), "ddMMyy")}
+Time: ${time}
+Engine Hour: ${eh}hr
+Mileage: ${odo}km
+Aux: ${auxPercent}%
+Starter: ${starterPercent}%
+
+Fault Description: ${
+        faults
+          ? `\n${faults
+              .split("\n")
+              .map((e) => e.trim())
+              .filter(Boolean)
+              .map((e) => `• ${e}`)
+              .join("\n")}`
+          : ""
+      }
+
+Observation: ${
+        observation
+          ? `\n${observation
+              .split("\n")
+              .map((e) => e.trim())
+              .filter(Boolean)
+              .map((e) => `• ${e}`)
+              .join("\n")}`
+          : ""
+      }
+
+Actions: ${
+        actions
+          ? `\n${actions
+              .split("\n")
+              .map((e) => e.trim())
+              .filter(Boolean)
+              .map((e) => `• ${e}`)
+              .join("\n")}`
+          : ""
+      }
+
+Remarks: ${
+        remarks
+          ? `\n${remarks
+              .split("\n")
+              .map((e) => e.trim())
+              .filter(Boolean)
+              .map((e) => `• ${e}`)
+              .join("\n")}`
+          : ""
+      }`;
+    },
+  },
+
   hullBOS: {
     name: "HULL BOS Template",
     fields: [
