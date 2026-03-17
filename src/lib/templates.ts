@@ -334,18 +334,18 @@ At around ${endTimeIncident}hrs, serviceman was given ${dayStatus} day ${sickSta
         errorMessage: "Time must be in 24hr format (e.g. 1320)",
       },
       {
-        key: "odo",
-        label: "Odometer",
-        type: "input",
-        placeholder: "Odo",
-        pattern: "^\\d+(\\.\\d+)?$",
-      },
-      {
         key: "eh",
         label: "Engine Hour",
         type: "input",
         placeholder: "Engine Hour",
         pattern: "^\\d+$",
+      },
+      {
+        key: "odo",
+        label: "Mileage",
+        type: "input",
+        placeholder: "Odo",
+        pattern: "^\\d+(\\.\\d+)?$",
       },
       {
         key: "fuelPercent",
@@ -356,17 +356,17 @@ At around ${endTimeIncident}hrs, serviceman was given ${dayStatus} day ${sickSta
         showIf: { key: "vehiclePresent", equals: "true" },
       },
       {
-        key: "starterPercent",
-        label: "Starter Battery Percent",
-        type: "input",
-        placeholder: "Starter Battery Percent",
-        pattern: "^\\d+$",
-      },
-      {
         key: "auxPercent",
         label: "Auxiliary Battery Percent",
         type: "input",
         placeholder: "Auxiliary Battery Percent",
+        pattern: "^\\d+$",
+      },
+      {
+        key: "starterPercent",
+        label: "Starter Battery Percent",
+        type: "input",
+        placeholder: "Starter Battery Percent",
         pattern: "^\\d+$",
       },
       {
@@ -429,7 +429,7 @@ Fault Description: ${
               .split("\n")
               .map((e) => e.trim())
               .filter(Boolean)
-              .map((e) => `• ${e}`)
+              .map((e) => `- ${e}`)
               .join("\n")}`
           : ""
       }
@@ -440,7 +440,7 @@ Observation: ${
               .split("\n")
               .map((e) => e.trim())
               .filter(Boolean)
-              .map((e) => `• ${e}`)
+              .map((e) => `- ${e}`)
               .join("\n")}`
           : ""
       }
@@ -451,7 +451,7 @@ Actions: ${
               .split("\n")
               .map((e) => e.trim())
               .filter(Boolean)
-              .map((e) => `• ${e}`)
+              .map((e) => `- ${e}`)
               .join("\n")}`
           : ""
       }
@@ -462,7 +462,7 @@ Remarks: ${
               .split("\n")
               .map((e) => e.trim())
               .filter(Boolean)
-              .map((e) => `• ${e}`)
+              .map((e) => `- ${e}`)
               .join("\n")}`
           : ""
       }`;
