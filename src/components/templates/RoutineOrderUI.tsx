@@ -228,7 +228,7 @@ export default function RoutineOrderUI({
                 <Label className="text-xs">DFO</Label>
                 <Input
                   value={entry.dfo}
-                  onChange={(e) => updateEntry(idx, { dfo: e.target.value })}
+                  onChange={(e) => updateEntry(idx, { dfo: e.target.value.toUpperCase() })}
                   placeholder="[12] ME4 ONG SOON KWEE"
                 />
               </div>
@@ -236,7 +236,7 @@ export default function RoutineOrderUI({
                 <Label className="text-xs">UDO</Label>
                 <Input
                   value={entry.udo}
-                  onChange={(e) => updateEntry(idx, { udo: e.target.value })}
+                  onChange={(e) => updateEntry(idx, { udo: e.target.value.toUpperCase() })}
                   placeholder="[11] 2LT XANDER LIEW YI"
                 />
               </div>
@@ -245,7 +245,7 @@ export default function RoutineOrderUI({
                 <Input
                   value={entry.dutyClerk}
                   onChange={(e) =>
-                    updateEntry(idx, { dutyClerk: e.target.value })
+                    updateEntry(idx, { dutyClerk: e.target.value.toUpperCase() })
                   }
                   placeholder="[S4] 3SG YONG YONG LIANG"
                 />
@@ -259,7 +259,7 @@ export default function RoutineOrderUI({
                   value={entry.rcv.cmdr}
                   onChange={(e) =>
                     updateEntry(idx, {
-                      rcv: { ...entry.rcv, cmdr: e.target.value },
+                      rcv: { ...entry.rcv, cmdr: e.target.value.toUpperCase() },
                     })
                   }
                   placeholder="[]"
@@ -271,7 +271,7 @@ export default function RoutineOrderUI({
                   value={entry.rcv.ic2}
                   onChange={(e) =>
                     updateEntry(idx, {
-                      rcv: { ...entry.rcv, ic2: e.target.value },
+                      rcv: { ...entry.rcv, ic2: e.target.value.toUpperCase() },
                     })
                   }
                   placeholder="[]"
@@ -283,7 +283,7 @@ export default function RoutineOrderUI({
                   value={entry.rcv.crew}
                   onChange={(e) =>
                     updateEntry(idx, {
-                      rcv: { ...entry.rcv, crew: e.target.value },
+                      rcv: { ...entry.rcv, crew: e.target.value.toUpperCase() },
                     })
                   }
                   placeholder="[]"
@@ -298,7 +298,7 @@ export default function RoutineOrderUI({
                   value={entry.arv.cmdr}
                   onChange={(e) =>
                     updateEntry(idx, {
-                      arv: { ...entry.arv, cmdr: e.target.value },
+                      arv: { ...entry.arv, cmdr: e.target.value.toUpperCase() },
                     })
                   }
                   placeholder="[]"
@@ -310,7 +310,7 @@ export default function RoutineOrderUI({
                   value={entry.arv.driver}
                   onChange={(e) =>
                     updateEntry(idx, {
-                      arv: { ...entry.arv, driver: e.target.value },
+                      arv: { ...entry.arv, driver: e.target.value.toUpperCase() },
                     })
                   }
                   placeholder="[]"
@@ -322,7 +322,7 @@ export default function RoutineOrderUI({
                   value={entry.arv.mechanic}
                   onChange={(e) =>
                     updateEntry(idx, {
-                      arv: { ...entry.arv, mechanic: e.target.value },
+                      arv: { ...entry.arv, mechanic: e.target.value.toUpperCase() },
                     })
                   }
                   placeholder="[]"
@@ -337,7 +337,7 @@ export default function RoutineOrderUI({
                   value={entry.hrv.cmdr}
                   onChange={(e) =>
                     updateEntry(idx, {
-                      hrv: { ...entry.hrv, cmdr: e.target.value },
+                      hrv: { ...entry.hrv, cmdr: e.target.value.toUpperCase() },
                     })
                   }
                   placeholder="[]"
@@ -349,7 +349,7 @@ export default function RoutineOrderUI({
                   value={entry.hrv.driver}
                   onChange={(e) =>
                     updateEntry(idx, {
-                      hrv: { ...entry.hrv, driver: e.target.value },
+                      hrv: { ...entry.hrv, driver: e.target.value.toUpperCase() },
                     })
                   }
                   placeholder="[]"
@@ -361,7 +361,7 @@ export default function RoutineOrderUI({
                   value={entry.hrv.mechanic}
                   onChange={(e) =>
                     updateEntry(idx, {
-                      hrv: { ...entry.hrv, mechanic: e.target.value },
+                      hrv: { ...entry.hrv, mechanic: e.target.value.toUpperCase() },
                     })
                   }
                   placeholder="[]"
