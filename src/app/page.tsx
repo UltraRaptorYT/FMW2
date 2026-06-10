@@ -44,6 +44,18 @@ function getDefaultsFor(type: string) {
   return defaults;
 }
 
+function normalizeFieldValues(type: string, values: Record<string, string>) {
+  if (type !== "offTemplate") return values;
+
+  const next = { ...values };
+  if (next.typeOff?.startsWith("OL - ")) {
+    next.olCountry = next.typeOff.replace(/^OL -\s*/, "");
+    next.typeOff = "OL";
+  }
+
+  return next;
+}
+
 function isFieldVisible(field: TemplateField, values: Record<string, string>) {
   if (!field.showIf) return true;
   return values[field.showIf.key] === field.showIf.equals;
@@ -74,7 +86,9 @@ export default function Page() {
     if (savedRaw) {
       try {
         const savedParsed = JSON.parse(savedRaw);
-        setFieldValues({ ...defaults, ...savedParsed });
+        setFieldValues(
+          normalizeFieldValues(initialType, { ...defaults, ...savedParsed }),
+        );
       } catch {
         setFieldValues(defaults);
       }
@@ -94,7 +108,9 @@ export default function Page() {
     if (savedRaw) {
       try {
         const savedParsed = JSON.parse(savedRaw);
-        setFieldValues({ ...defaults, ...savedParsed });
+        setFieldValues(
+          normalizeFieldValues(type, { ...defaults, ...savedParsed }),
+        );
       } catch {
         setFieldValues(defaults);
       }
@@ -106,9 +122,31 @@ export default function Page() {
   const handleChange = (key: string, value: string) => {
     setFieldValues((prev) => {
       const next = { ...prev, [key]: value };
+
+      if (key === "typeOff" && value !== "OL") {
+        delete next.olCountry;
+      }
+
+      if (key === "isHalfDay" && value !== "true") {
+        delete next.timeOff;
+      }
+
       localStorage.setItem(fieldsKeyFor(selectedType), JSON.stringify(next));
       return next;
     });
+  };
+
+  const handleResetToDefault = () => {
+    if (template.customUI) {
+      toast.info("Use the reset option inside this template.");
+      return;
+    }
+
+    localStorage.removeItem(fieldsKeyFor(selectedType));
+    const defaults = getDefaultsFor(selectedType);
+    setFieldValues(defaults);
+    setGenerated("");
+    toast.info("Reset to default values");
   };
 
   const handleGenerate = async () => {
@@ -157,6 +195,10 @@ export default function Page() {
         const end = new Date(fieldValues[endKey]);
         if (end < start)
           return toast.error("End date must be after or same as start date.");
+      }
+
+      if (selectedType === "offTemplate" && relevantFields.typeOff === "OL") {
+        relevantFields.typeOff = `OL - ${relevantFields.olCountry}`;
       }
 
       const result = template.generate(relevantFields);
@@ -316,13 +358,22 @@ export default function Page() {
               </div>
             ))}
 
-          <Button
-            onClick={handleGenerate}
-            className="w-full"
-            disabled={loading}
-          >
-            {loading ? "Generating..." : "Generate Template"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleGenerate}
+              className="flex-1"
+              disabled={loading}
+            >
+              {loading ? "Generating..." : "Generate Template"}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleResetToDefault}
+            >
+              Reset
+            </Button>
+          </div>
         </div>
       )}
 
@@ -344,20 +395,7 @@ export default function Page() {
 
             <Button
               variant="destructive"
-              onClick={() => {
-                if (template.customUI) {
-                  // the custom UIs manage their own keys + clearing, so you can handle separately if needed
-                  toast.info(
-                    "Use the Clear button inside the template UI (or clear its localStorage key).",
-                  );
-                  return;
-                }
-
-                localStorage.removeItem(fieldsKeyFor(selectedType));
-                const defaults = getDefaultsFor(selectedType);
-                setFieldValues(defaults);
-                toast.info("Reset to default values");
-              }}
+              onClick={handleResetToDefault}
             >
               Reset to Default
             </Button>

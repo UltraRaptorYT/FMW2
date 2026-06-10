@@ -27,6 +27,11 @@ import { DAY_NAMES, MONTHS } from "@/lib/template-utils";
 
 const GUARD_DUTY_STORAGE_KEY = "fmw2:guardDuty";
 
+function isWeekend(date: Date) {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+}
+
 function serializeGuardDuty(state: {
   selectedMonth: number;
   selectedYear: number;
@@ -106,6 +111,12 @@ export default function GuardDutyUI({
     }));
   };
 
+  const clearDates = () => {
+    setState((prev) => ({ ...prev, entries: [] }));
+    onGenerate("");
+    toast.info("Cleared all guard duty dates");
+  };
+
   const updateNumGuards = (index: number, value: number) => {
     setState((prev) => ({
       ...prev,
@@ -153,6 +164,16 @@ export default function GuardDutyUI({
 
       for (let g = 0; g < entry.numGuards; g++) {
         result += `G: \nNUMBER: \n \n`;
+      }
+
+      if (isWeekend(entry.date)) {
+        for (const ic of entry.icTypes) {
+          result += `STANDBY ${ic}: \nNUMBER: \n \n`;
+        }
+
+        for (let g = 0; g < entry.numGuards; g++) {
+          result += `STANDBY: \nNUMBER: \n \n`;
+        }
       }
 
       if (idx < entries.length - 1) result += `==========\n`;
@@ -248,7 +269,17 @@ export default function GuardDutyUI({
 
       {entries.length > 0 && (
         <div className="space-y-3">
-          <Label>Configure Each Date</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label>Configure Each Date</Label>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={clearDates}
+            >
+              Clear All Dates
+            </Button>
+          </div>
           {entries.map((entry, idx) => (
             <div
               key={entry.date.toISOString()}
