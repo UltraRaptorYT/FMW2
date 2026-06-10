@@ -29,16 +29,89 @@ import {
 } from "@/lib/template-utils";
 
 const ROUTINE_STORAGE_KEY = "fmw2:routineOrder";
+const DEPOTS = ["11", "12", "13", "19", "BNHQ"] as const;
+
+function DepotSelect({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <Select value={value || ""} onValueChange={onChange}>
+      <SelectTrigger>
+        <SelectValue placeholder="Depot" />
+      </SelectTrigger>
+      <SelectContent>
+        {DEPOTS.map((depot) => (
+          <SelectItem key={depot} value={depot}>
+            {depot}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function DutyInput({
+  value,
+  depot,
+  placeholder,
+  onDepotChange,
+  onValueChange,
+}: {
+  value: string;
+  depot?: string;
+  placeholder: string;
+  onDepotChange: (value: string) => void;
+  onValueChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex gap-2">
+      <DepotSelect value={depot} onChange={onDepotChange} />
+      <Input
+        value={value}
+        onChange={(e) => onValueChange(e.target.value.toUpperCase())}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
 
 function emptyEntry(date: Date): RegimentalEntry {
   return {
     date,
+    dfoDepot: "",
     dfo: "",
+    udoDepot: "",
     udo: "",
+    dutyClerkDepot: "",
     dutyClerk: "",
-    rcv: { cmdr: "", ic2: "", crew: "" },
-    arv: { cmdr: "", driver: "", mechanic: "" },
-    hrv: { cmdr: "", driver: "", mechanic: "" },
+    rcv: {
+      cmdrDepot: "",
+      cmdr: "",
+      ic2Depot: "",
+      ic2: "",
+      crewDepot: "",
+      crew: "",
+    },
+    arv: {
+      cmdrDepot: "",
+      cmdr: "",
+      driverDepot: "",
+      driver: "",
+      mechanicDepot: "",
+      mechanic: "",
+    },
+    hrv: {
+      cmdrDepot: "",
+      cmdr: "",
+      driverDepot: "",
+      driver: "",
+      mechanicDepot: "",
+      mechanic: "",
+    },
   };
 }
 
@@ -206,7 +279,7 @@ export default function RoutineOrderUI({
             toast.info("Reset to default span for today");
           }}
         >
-          Use Default Rule
+          Use Default
         </Button>
       </div>
 
@@ -226,28 +299,34 @@ export default function RoutineOrderUI({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs">DFO</Label>
-                <Input
+                <DutyInput
                   value={entry.dfo}
-                  onChange={(e) => updateEntry(idx, { dfo: e.target.value.toUpperCase() })}
-                  placeholder="[12] ME4 ONG SOON KWEE"
+                  depot={entry.dfoDepot}
+                  onDepotChange={(dfoDepot) => updateEntry(idx, { dfoDepot })}
+                  onValueChange={(dfo) => updateEntry(idx, { dfo })}
+                  placeholder="ME4 ONG SOON KWEE"
                 />
               </div>
               <div>
                 <Label className="text-xs">UDO</Label>
-                <Input
+                <DutyInput
                   value={entry.udo}
-                  onChange={(e) => updateEntry(idx, { udo: e.target.value.toUpperCase() })}
-                  placeholder="[11] 2LT XANDER LIEW YI"
+                  depot={entry.udoDepot}
+                  onDepotChange={(udoDepot) => updateEntry(idx, { udoDepot })}
+                  onValueChange={(udo) => updateEntry(idx, { udo })}
+                  placeholder="2LT XANDER LIEW YI"
                 />
               </div>
               <div>
                 <Label className="text-xs">Duty Clerk</Label>
-                <Input
+                <DutyInput
                   value={entry.dutyClerk}
-                  onChange={(e) =>
-                    updateEntry(idx, { dutyClerk: e.target.value.toUpperCase() })
+                  depot={entry.dutyClerkDepot}
+                  onDepotChange={(dutyClerkDepot) =>
+                    updateEntry(idx, { dutyClerkDepot })
                   }
-                  placeholder="[S4] 3SG YONG YONG LIANG"
+                  onValueChange={(dutyClerk) => updateEntry(idx, { dutyClerk })}
+                  placeholder="3SG YONG YONG LIANG"
                 />
               </div>
             </div>
@@ -255,11 +334,17 @@ export default function RoutineOrderUI({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs">RCV CMDR</Label>
-                <Input
+                <DutyInput
                   value={entry.rcv.cmdr}
-                  onChange={(e) =>
+                  depot={entry.rcv.cmdrDepot}
+                  onDepotChange={(cmdrDepot) =>
                     updateEntry(idx, {
-                      rcv: { ...entry.rcv, cmdr: e.target.value.toUpperCase() },
+                      rcv: { ...entry.rcv, cmdrDepot },
+                    })
+                  }
+                  onValueChange={(cmdr) =>
+                    updateEntry(idx, {
+                      rcv: { ...entry.rcv, cmdr },
                     })
                   }
                   placeholder="[]"
@@ -267,23 +352,35 @@ export default function RoutineOrderUI({
               </div>
               <div>
                 <Label className="text-xs">RCV 2IC</Label>
-                <Input
+                <DutyInput
                   value={entry.rcv.ic2}
-                  onChange={(e) =>
+                  depot={entry.rcv.ic2Depot}
+                  onDepotChange={(ic2Depot) =>
                     updateEntry(idx, {
-                      rcv: { ...entry.rcv, ic2: e.target.value.toUpperCase() },
+                      rcv: { ...entry.rcv, ic2Depot },
+                    })
+                  }
+                  onValueChange={(ic2) =>
+                    updateEntry(idx, {
+                      rcv: { ...entry.rcv, ic2 },
                     })
                   }
                   placeholder="[]"
                 />
               </div>
               <div>
-                <Label className="text-xs">RCV CREW (one per line)</Label>
-                <Input
+                <Label className="text-xs">RCV CREW</Label>
+                <DutyInput
                   value={entry.rcv.crew}
-                  onChange={(e) =>
+                  depot={entry.rcv.crewDepot}
+                  onDepotChange={(crewDepot) =>
                     updateEntry(idx, {
-                      rcv: { ...entry.rcv, crew: e.target.value.toUpperCase() },
+                      rcv: { ...entry.rcv, crewDepot },
+                    })
+                  }
+                  onValueChange={(crew) =>
+                    updateEntry(idx, {
+                      rcv: { ...entry.rcv, crew },
                     })
                   }
                   placeholder="[]"
@@ -294,11 +391,17 @@ export default function RoutineOrderUI({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs">ARV CMDR</Label>
-                <Input
+                <DutyInput
                   value={entry.arv.cmdr}
-                  onChange={(e) =>
+                  depot={entry.arv.cmdrDepot}
+                  onDepotChange={(cmdrDepot) =>
                     updateEntry(idx, {
-                      arv: { ...entry.arv, cmdr: e.target.value.toUpperCase() },
+                      arv: { ...entry.arv, cmdrDepot },
+                    })
+                  }
+                  onValueChange={(cmdr) =>
+                    updateEntry(idx, {
+                      arv: { ...entry.arv, cmdr },
                     })
                   }
                   placeholder="[]"
@@ -306,11 +409,17 @@ export default function RoutineOrderUI({
               </div>
               <div>
                 <Label className="text-xs">ARV DRIVER</Label>
-                <Input
+                <DutyInput
                   value={entry.arv.driver}
-                  onChange={(e) =>
+                  depot={entry.arv.driverDepot}
+                  onDepotChange={(driverDepot) =>
                     updateEntry(idx, {
-                      arv: { ...entry.arv, driver: e.target.value.toUpperCase() },
+                      arv: { ...entry.arv, driverDepot },
+                    })
+                  }
+                  onValueChange={(driver) =>
+                    updateEntry(idx, {
+                      arv: { ...entry.arv, driver },
                     })
                   }
                   placeholder="[]"
@@ -318,11 +427,17 @@ export default function RoutineOrderUI({
               </div>
               <div>
                 <Label className="text-xs">ARV MECHANIC</Label>
-                <Input
+                <DutyInput
                   value={entry.arv.mechanic}
-                  onChange={(e) =>
+                  depot={entry.arv.mechanicDepot}
+                  onDepotChange={(mechanicDepot) =>
                     updateEntry(idx, {
-                      arv: { ...entry.arv, mechanic: e.target.value.toUpperCase() },
+                      arv: { ...entry.arv, mechanicDepot },
+                    })
+                  }
+                  onValueChange={(mechanic) =>
+                    updateEntry(idx, {
+                      arv: { ...entry.arv, mechanic },
                     })
                   }
                   placeholder="[]"
@@ -333,11 +448,17 @@ export default function RoutineOrderUI({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs">HRV CMDR</Label>
-                <Input
+                <DutyInput
                   value={entry.hrv.cmdr}
-                  onChange={(e) =>
+                  depot={entry.hrv.cmdrDepot}
+                  onDepotChange={(cmdrDepot) =>
                     updateEntry(idx, {
-                      hrv: { ...entry.hrv, cmdr: e.target.value.toUpperCase() },
+                      hrv: { ...entry.hrv, cmdrDepot },
+                    })
+                  }
+                  onValueChange={(cmdr) =>
+                    updateEntry(idx, {
+                      hrv: { ...entry.hrv, cmdr },
                     })
                   }
                   placeholder="[]"
@@ -345,11 +466,17 @@ export default function RoutineOrderUI({
               </div>
               <div>
                 <Label className="text-xs">HRV DRIVER</Label>
-                <Input
+                <DutyInput
                   value={entry.hrv.driver}
-                  onChange={(e) =>
+                  depot={entry.hrv.driverDepot}
+                  onDepotChange={(driverDepot) =>
                     updateEntry(idx, {
-                      hrv: { ...entry.hrv, driver: e.target.value.toUpperCase() },
+                      hrv: { ...entry.hrv, driverDepot },
+                    })
+                  }
+                  onValueChange={(driver) =>
+                    updateEntry(idx, {
+                      hrv: { ...entry.hrv, driver },
                     })
                   }
                   placeholder="[]"
@@ -357,11 +484,17 @@ export default function RoutineOrderUI({
               </div>
               <div>
                 <Label className="text-xs">HRV MECHANIC</Label>
-                <Input
+                <DutyInput
                   value={entry.hrv.mechanic}
-                  onChange={(e) =>
+                  depot={entry.hrv.mechanicDepot}
+                  onDepotChange={(mechanicDepot) =>
                     updateEntry(idx, {
-                      hrv: { ...entry.hrv, mechanic: e.target.value.toUpperCase() },
+                      hrv: { ...entry.hrv, mechanicDepot },
+                    })
+                  }
+                  onValueChange={(mechanic) =>
+                    updateEntry(idx, {
+                      hrv: { ...entry.hrv, mechanic },
                     })
                   }
                   placeholder="[]"

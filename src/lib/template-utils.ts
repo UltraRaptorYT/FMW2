@@ -52,6 +52,20 @@ export function formatDdMmYy(d: Date) {
   return `${dd}/${mm}/${yy}`;
 }
 
+function formatDutyName(value: string, depot?: string) {
+  const name = value.trim();
+  if (!name) return "[]";
+  if (/^\[[^\]]+\]\s*/.test(name)) return name;
+  return depot ? `[${depot}] ${name}` : name;
+}
+
+function formatCrewLines(value: string, depot?: string) {
+  return (value || "")
+    .split("\n")
+    .map((s) => formatDutyName(s, depot))
+    .filter((s) => s !== "[]");
+}
+
 export function formatRegimental(entries: RegimentalEntry[]) {
   return entries
     .slice()
@@ -60,30 +74,27 @@ export function formatRegimental(entries: RegimentalEntry[]) {
       const dayName = DAY_NAMES[e.date.getDay()];
       const dateStr = formatDdMmYy(e.date);
 
-      const crewLines = (e.rcv.crew || "")
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const crewLines = formatCrewLines(e.rcv.crew, e.rcv.crewDepot);
 
       return `-<${dayName} ${dateStr}>-
-DFO- ${e.dfo || "[]"}
-UDO- ${e.udo || "[]"}
-DUTY CLERK- ${e.dutyClerk || "[]"}
+DFO- ${formatDutyName(e.dfo, e.dfoDepot)}
+UDO- ${formatDutyName(e.udo, e.udoDepot)}
+DUTY CLERK- ${formatDutyName(e.dutyClerk, e.dutyClerkDepot)}
 
 RCV Recovery Duty
-CMDR- ${e.rcv.cmdr || "[]"}
-2IC- ${e.rcv.ic2 || "[]"}
+CMDR- ${formatDutyName(e.rcv.cmdr, e.rcv.cmdrDepot)}
+2IC- ${formatDutyName(e.rcv.ic2, e.rcv.ic2Depot)}
 CREW- ${crewLines.length ? crewLines.map((c) => `\n- ${c}`).join("") : "[]"}
 
 ARV Recover duty
-CMDR- ${e.arv.cmdr || "[]"}
-DRIVER- ${e.arv.driver || "[]"}
-MECHANIC- ${e.arv.mechanic || "[]"}
+CMDR- ${formatDutyName(e.arv.cmdr, e.arv.cmdrDepot)}
+DRIVER- ${formatDutyName(e.arv.driver, e.arv.driverDepot)}
+MECHANIC- ${formatDutyName(e.arv.mechanic, e.arv.mechanicDepot)}
 
 HRV Recover duty
-CMDR- ${e.hrv.cmdr || "[]"}
-DRIVER- ${e.hrv.driver || "[]"}
-MECHANIC- ${e.hrv.mechanic || "[]"}
+CMDR- ${formatDutyName(e.hrv.cmdr, e.hrv.cmdrDepot)}
+DRIVER- ${formatDutyName(e.hrv.driver, e.hrv.driverDepot)}
+MECHANIC- ${formatDutyName(e.hrv.mechanic, e.hrv.mechanicDepot)}
 
 -<${dayName} ${dateStr}>-`;
     })

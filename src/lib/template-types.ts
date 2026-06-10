@@ -27,21 +27,30 @@ export type GuardDutyEntry = {
 };
 
 export type RecoveryDuty = {
+  cmdrDepot?: string;
   cmdr: string;
+  ic2Depot?: string;
   ic2: string;
+  crewDepot?: string;
   crew: string; // multiline
 };
 
 export type VehicleRecoveryDuty = {
+  cmdrDepot?: string;
   cmdr: string;
+  driverDepot?: string;
   driver: string;
+  mechanicDepot?: string;
   mechanic: string;
 };
 
 export type RegimentalEntry = {
   date: Date;
+  dfoDepot?: string;
   dfo: string;
+  udoDepot?: string;
   udo: string;
+  dutyClerkDepot?: string;
   dutyClerk: string;
   rcv: RecoveryDuty;
   arv: VehicleRecoveryDuty;
